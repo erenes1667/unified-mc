@@ -1,0 +1,116 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "createdAt": "{{CREATED_AT}}",
+    "installerVersion": "1.0.0"
+  },
+  "auth": {
+    "profiles": {}
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      {{#ANTHROPIC_KEY}}
+      "anthropic": {
+        "apiKey": "{{ANTHROPIC_KEY}}",
+        "models": [
+          {
+            "id": "claude-sonnet-4-20250514",
+            "name": "Claude Sonnet 4",
+            "api": "anthropic-messages",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": { "input": 3, "output": 15 },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          },
+          {
+            "id": "claude-haiku-4-5-20251001",
+            "name": "Claude Haiku 4.5",
+            "api": "anthropic-messages",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": { "input": 0.8, "output": 4 },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          }
+        ]
+      }{{#HAS_MORE_AFTER_ANTHROPIC}},{{/HAS_MORE_AFTER_ANTHROPIC}}
+      {{/ANTHROPIC_KEY}}
+      {{#OPENAI_KEY}}
+      "openai": {
+        "apiKey": "{{OPENAI_KEY}}",
+        "models": [
+          {
+            "id": "gpt-4o",
+            "name": "GPT-4o",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": { "input": 2.5, "output": 10 },
+            "contextWindow": 128000,
+            "maxTokens": 4096
+          },
+          {
+            "id": "gpt-4o-mini",
+            "name": "GPT-4o Mini",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": { "input": 0.15, "output": 0.6 },
+            "contextWindow": 128000,
+            "maxTokens": 4096
+          }
+        ]
+      }{{#HAS_MORE_AFTER_OPENAI}},{{/HAS_MORE_AFTER_OPENAI}}
+      {{/OPENAI_KEY}}
+      {{#GEMINI_KEY}}
+      "google": {
+        "apiKey": "{{GEMINI_KEY}}",
+        "models": [
+          {
+            "id": "gemini-2.0-flash",
+            "name": "Gemini 2.0 Flash",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": { "input": 0, "output": 0 },
+            "contextWindow": 1048576,
+            "maxTokens": 8192
+          }
+        ]
+      }
+      {{/GEMINI_KEY}}
+    }
+  },
+  "agents": {
+    "defaults": {
+      "maxTurns": 50,
+      "tools": {
+        "web": { "search": { "enabled": true }, "fetch": { "enabled": true } }
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "{{AGENT_NAME}}",
+        "workspace": "{{WORKSPACE_DIR}}",
+        "model": "{{DEFAULT_MODEL}}",
+        "identity": {
+          "name": "{{AGENT_NAME}}",
+          "emoji": "{{AGENT_EMOJI}}"
+        }
+      }
+    ]
+  },
+  "tools": {
+    "web": { "search": { "enabled": true }, "fetch": { "enabled": true } }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback"
+  },
+  "channels": {}
+}

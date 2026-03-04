@@ -1,0 +1,63 @@
+# HEARTBEAT.md — Scheduled Tasks
+
+*These are periodic checks and tasks your AI assistant runs automatically.*
+
+{{#EMAIL}}
+## Email Monitoring
+- **Frequency:** Every 2 hours during work hours
+- **Action:** Check inbox for unread messages, flag urgent items
+- **Mode:** READ-ONLY — summarize and notify, never send
+{{/EMAIL}}
+
+{{#CALENDAR}}
+## Calendar Awareness
+- **Frequency:** Daily at start of workday
+- **Action:** Summarize today's meetings and upcoming deadlines
+- **Mode:** READ-ONLY
+{{/CALENDAR}}
+
+{{#PROJECT_TRACKING}}
+## Project Check-in
+- **Frequency:** Daily
+- **Action:** Review task lists, flag overdue items, summarize progress
+{{/PROJECT_TRACKING}}
+
+{{#CODE_REVIEW}}
+## Code & Development
+- **Frequency:** On demand
+- **Action:** Review PRs, check CI/CD status, summarize changes
+- **Mode:** READ-ONLY unless explicitly approved
+{{/CODE_REVIEW}}
+
+{{#RESEARCH}}
+## Research Digest
+- **Frequency:** Weekly
+- **Action:** Compile relevant industry news, competitor updates, and trends
+{{/RESEARCH}}
+
+{{#CONTENT}}
+## Content Pipeline
+- **Frequency:** Weekly
+- **Action:** Review content calendar, suggest topics, draft outlines
+{{/CONTENT}}
+
+{{#CLIENT_MGMT}}
+## Client Updates
+- **Frequency:** Daily
+- **Action:** Check client communication channels, flag items needing response
+- **Mode:** READ-ONLY — notify, never respond on behalf of user
+{{/CLIENT_MGMT}}
+
+{{#DATA_ANALYSIS}}
+## Data Review
+- **Frequency:** Weekly
+- **Action:** Pull key metrics, generate summary reports, flag anomalies
+{{/DATA_ANALYSIS}}
+
+## On-Demand
+
+- Memory cleanup and compaction (monthly)
+- Full workspace health check (weekly)
+
+---
+*Generated during onboarding. Customize frequencies and add new tasks as needed.*
