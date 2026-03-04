@@ -126,7 +126,8 @@ if ($hasOC) {
     Ok 'OpenClaw already installed'
 } else {
     Log 'Installing OpenClaw globally...'
-    $npmPath = Join-Path (Split-Path (Get-Command node).Source -Parent) 'npm.cmd'
+    $npmPath = Join-Path $nodeDir 'npm.cmd'
+    if (-not (Test-Path $npmPath)) { $npmPath = (Get-Command npm -ErrorAction SilentlyContinue).Source }
     & $npmPath install -g openclaw 2>$null
     if ($LASTEXITCODE -eq 0) { Ok 'OpenClaw installed' }
     else { Caution 'OpenClaw not available via npm (skipping)' }
@@ -160,7 +161,8 @@ if ($LASTEXITCODE -ne 0) {
 # --- Build ---
 Log 'Installing dependencies...'
 Set-Location $APP_DIR
-$npmPath = Join-Path (Split-Path (Get-Command node).Source -Parent) 'npm.cmd'
+$npmPath = Join-Path $nodeDir 'npm.cmd'
+if (-not (Test-Path $npmPath)) { $npmPath = (Get-Command npm -ErrorAction SilentlyContinue).Source }
 & $npmPath install 2>&1 | Out-Null
 Ok 'Dependencies installed'
 
