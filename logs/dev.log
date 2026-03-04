@@ -1,0 +1,111 @@
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/eneseren/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/eneseren/.openclaw/workspace/projects/unified-mc/pnpm-lock.yaml
+
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:5173
+   - Network:      http://192.168.1.8:5173
+
+ ✓ Starting...
+ ✓ Ready in 3.2s
+ ○ Compiling / ...
+ ✓ Compiled / in 47.8s (635 modules)
+ GET / 200 in 39983ms
+ ✓ Compiled in 24.3s (242 modules)
+ GET / 200 in 5220ms
+ GET / 200 in 3041ms
+ ○ Compiling /team ...
+ ✓ Compiled /team in 12.1s (628 modules)
+ GET /team 200 in 15493ms
+ ○ Compiling /api/team ...
+ ✓ Compiled /api/team in 6.9s (648 modules)
+ GET /api/team 200 in 8954ms
+ GET / 200 in 2010ms
+[?25h
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/eneseren/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /Users/eneseren/.openclaw/workspace/projects/unified-mc/pnpm-lock.yaml
+
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:5173
+   - Network:      http://192.168.1.8:5173
+
+ ✓ Starting...
+ ✓ Ready in 29.4s
+ ○ Compiling / ...
+ ✓ Compiled / in 1048ms (635 modules)
+ ✓ Compiled in 753ms (242 modules)
+ GET / 200 in 2054ms
+ ✓ Compiled /tasks in 419ms (627 modules)
+ GET /tasks 200 in 493ms
+ ○ Compiling /chat ...
+ ✓ Compiled /chat in 1034ms (1160 modules)
+ GET /chat 200 in 1102ms
+ ✓ Compiled /api/role in 425ms (1177 modules)
+ GET /api/role?id=emperor 200 in 708ms
+ GET /api/role?id=emperor 200 in 9ms
+ GET / 200 in 183ms
+ GET /chat 200 in 22ms
+ GET /api/role?id=emperor 200 in 7ms
+ GET /api/role?id=emperor 200 in 5ms
+ GET /tasks 200 in 61ms
+ ✓ Compiled /team in 248ms (1184 modules)
+ GET /team 200 in 289ms
+ ✓ Compiled /api/team in 109ms (1186 modules)
+ GET /api/team 200 in 128ms
+ GET /api/team 200 in 6ms
+ ✓ Compiled /memory in 235ms (1193 modules)
+ GET /memory 200 in 275ms
+ ✓ Compiled /api/memory in 118ms (1196 modules)
+ GET /api/memory 200 in 155ms
+ GET /api/memory 200 in 24ms
+ GET /api/memory?file=2026-03-03.md 200 in 23ms
+ GET /api/memory?file=2026-03-02.md 200 in 29ms
+ GET /api/memory?file=2026-03-01.md 200 in 17ms
+ ✓ Compiled /calendar in 302ms (1203 modules)
+ GET /calendar 200 in 351ms
+ ✓ Compiled /api/cron in 151ms (1205 modules)
+ GET /api/cron 200 in 208ms
+ GET /api/cron 200 in 6ms
+ ✓ Compiled /activity in 286ms (1205 modules)
+ GET /activity 200 in 333ms
+ ✓ Compiled /projects in 270ms (1212 modules)
+ GET /projects 200 in 310ms
+ ✓ Compiled /api/projects in 145ms (1214 modules)
+ GET /api/projects 200 in 169ms
+ GET /api/projects 200 in 10ms
+ ✓ Compiled /docs in 236ms (935 modules)
+ GET /docs 200 in 354ms
+ ✓ Compiled /email-ops in 224ms (937 modules)
+ GET /email-ops 200 in 262ms
+ ✓ Compiled /kde-metrics in 212ms (939 modules)
+ GET /kde-metrics 200 in 249ms
+ ✓ Compiled /usage in 199ms (941 modules)
+ GET /usage 200 in 248ms
+ ✓ Compiled /office in 211ms (943 modules)
+ GET /office 200 in 249ms
+ ✓ Compiled /radar in 210ms (945 modules)
+ GET /radar 200 in 250ms
+ ✓ Compiled /pipeline in 220ms (947 modules)
+ GET /pipeline 200 in 257ms
+ ✓ Compiled /directives in 256ms (949 modules)
+ GET /directives 200 in 299ms
+ ✓ Compiled /admin in 215ms (951 modules)
+ GET /admin 200 in 256ms
+ ✓ Compiled /chat in 367ms (716 modules)
+ GET /chat 200 in 431ms
+ ✓ Compiled /api/role in 212ms (718 modules)
+ GET /api/role?id=emperor 200 in 318ms
+ GET /api/role?id=emperor 200 in 5ms
+ ✓ Compiled /settings in 281ms (1218 modules)
+ GET /settings 200 in 323ms
+ GET /chat 200 in 72ms
+ GET /api/role?id=emperor 200 in 50ms
+ GET /api/role?id=emperor 200 in 7ms
+[?25h
