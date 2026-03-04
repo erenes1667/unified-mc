@@ -126,7 +126,8 @@ if ($hasOC) {
     Ok 'OpenClaw already installed'
 } else {
     Log 'Installing OpenClaw globally...'
-    npm install -g openclaw 2>$null
+    $npmPath = Join-Path (Split-Path (Get-Command node).Source -Parent) 'npm.cmd'
+    & $npmPath install -g openclaw 2>$null
     if ($LASTEXITCODE -eq 0) { Ok 'OpenClaw installed' }
     else { Caution 'OpenClaw not available via npm (skipping)' }
 }
@@ -159,12 +160,13 @@ if ($LASTEXITCODE -ne 0) {
 # --- Build ---
 Log 'Installing dependencies...'
 Set-Location $APP_DIR
-npm install 2>&1 | Select-Object -Last 1
+$npmPath = Join-Path (Split-Path (Get-Command node).Source -Parent) 'npm.cmd'
+& $npmPath install 2>&1 | Out-Null
 Ok 'Dependencies installed'
 
 Log 'Building application (this may take a few minutes)...'
 $env:NODE_OPTIONS = '--max-old-space-size=2048'
-npm run build 2>&1 | Select-Object -Last 3
+& $npmPath run build 2>&1 | Out-Null
 Ok 'Build complete'
 
 # --- Auto-start ---
