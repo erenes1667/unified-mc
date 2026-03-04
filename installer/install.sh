@@ -40,12 +40,21 @@ check_prereqs() {
   # Node.js
   if ! command -v node &> /dev/null; then
     warn "Node.js not found."
-    if command -v brew &> /dev/null; then
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v brew &> /dev/null; then
       log "Installing Node.js via Homebrew..."
       brew install node
+    elif [[ "$OSTYPE" == "linux"* ]] && command -v apt-get &> /dev/null; then
+      log "Installing Node.js via apt..."
+      curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+      sudo apt-get install -y nodejs
+    elif [[ "$OSTYPE" == "linux"* ]] && command -v dnf &> /dev/null; then
+      log "Installing Node.js via dnf..."
+      sudo dnf install -y nodejs
     else
       error "Node.js is required. Install it from https://nodejs.org"
-      error "Or install Homebrew first: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+      if [[ "$OSTYPE" == "darwin"* ]]; then
+        error "Or install Homebrew first: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+      fi
       exit 1
     fi
   fi
@@ -61,11 +70,19 @@ check_prereqs() {
   # Git
   if ! command -v git &> /dev/null; then
     warn "Git not found."
-    if command -v brew &> /dev/null; then
-      log "Installing Git via Homebrew..."
-      brew install git
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      log "Installing Xcode Command Line Tools (includes Git)..."
+      xcode-select --install 2>/dev/null || true
+      error "Please re-run this installer after Xcode tools finish installing."
+      exit 1
+    elif command -v apt-get &> /dev/null; then
+      log "Installing Git via apt..."
+      sudo apt-get install -y git
+    elif command -v dnf &> /dev/null; then
+      log "Installing Git via dnf..."
+      sudo dnf install -y git
     else
-      error "Git is required. Install Xcode Command Line Tools: xcode-select --install"
+      error "Git is required. Install it from https://git-scm.com"
       exit 1
     fi
   fi
@@ -135,33 +152,62 @@ build_app() {
 }
 
 install_service() {
-  if [[ "$OSTYPE" != "darwin"* ]]; then
-    warn "Auto-start is only supported on macOS for now."
-    warn "Start manually with: cd $APP_DIR && npm start"
-    return
-  fi
-
-  log "Installing auto-start service..."
-
   NODE_PATH=$(which node)
   SERVER_JS="$APP_DIR/.next/server/server.js"
   LOG_DIR="$APP_DIR/logs"
   mkdir -p "$LOG_DIR"
 
-  # Generate plist from template
-  sed \
-    -e "s|{{NODE_PATH}}|${NODE_PATH}|g" \
-    -e "s|{{SERVER_JS}}|${SERVER_JS}|g" \
-    -e "s|{{APP_DIR}}|${APP_DIR}|g" \
-    -e "s|{{PORT}}|${PORT}|g" \
-    -e "s|{{LOG_DIR}}|${LOG_DIR}|g" \
-    -e "s|{{PLIST_LABEL}}|${PLIST_LABEL}|g" \
-    "$INSTALLER_DIR/com.unified-mc.plist.tmpl" > "$PLIST_FILE"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    log "Installing launchd service (macOS)..."
 
-  launchctl unload "$PLIST_FILE" 2>/dev/null || true
-  launchctl load "$PLIST_FILE"
+    sed \
+      -e "s|{{NODE_PATH}}|${NODE_PATH}|g" \
+      -e "s|{{SERVER_JS}}|${SERVER_JS}|g" \
+      -e "s|{{APP_DIR}}|${APP_DIR}|g" \
+      -e "s|{{PORT}}|${PORT}|g" \
+      -e "s|{{LOG_DIR}}|${LOG_DIR}|g" \
+      -e "s|{{PLIST_LABEL}}|${PLIST_LABEL}|g" \
+      "$INSTALLER_DIR/com.unified-mc.plist.tmpl" > "$PLIST_FILE"
 
-  success "LaunchAgent installed — auto-starts on boot"
+    launchctl unload "$PLIST_FILE" 2>/dev/null || true
+    launchctl load "$PLIST_FILE"
+
+    success "LaunchAgent installed (auto-starts on boot)"
+
+  elif [[ "$OSTYPE" == "linux"* ]]; then
+    log "Installing systemd service (Linux)..."
+
+    SYSTEMD_FILE="$HOME/.config/systemd/user/unified-mc.service"
+    mkdir -p "$(dirname "$SYSTEMD_FILE")"
+
+    cat > "$SYSTEMD_FILE" <<SEOF
+[Unit]
+Description=Unified Mission Control
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=$APP_DIR
+Environment=PORT=$PORT
+Environment=NODE_ENV=production
+ExecStart=$NODE_PATH $SERVER_JS
+Restart=always
+RestartSec=10
+StandardOutput=append:$LOG_DIR/stdout.log
+StandardError=append:$LOG_DIR/stderr.log
+
+[Install]
+WantedBy=default.target
+SEOF
+
+    systemctl --user daemon-reload
+    systemctl --user enable unified-mc
+    systemctl --user start unified-mc
+
+    success "Systemd user service installed (auto-starts on login)"
+  else
+    warn "Unknown OS. Start manually: cd $APP_DIR && PORT=$PORT npm start"
+  fi
 }
 
 start_app() {
@@ -169,6 +215,8 @@ start_app() {
 
   if [[ "$OSTYPE" == "darwin"* ]]; then
     launchctl start "$PLIST_LABEL" 2>/dev/null || true
+  elif [[ "$OSTYPE" == "linux"* ]]; then
+    systemctl --user start unified-mc 2>/dev/null || true
   fi
 
   log "Waiting for server..."
