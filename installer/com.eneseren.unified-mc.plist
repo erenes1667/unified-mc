@@ -17,7 +17,7 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>PORT</key>
-    <string>3000</string>
+    <string>5173</string>
     <key>PATH</key>
     <string>/usr/local/bin:/usr/bin:/bin:/Users/eneseren/.nvm/versions/node/v25.3.0/bin</string>
   </dict>

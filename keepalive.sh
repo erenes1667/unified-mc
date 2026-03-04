@@ -5,7 +5,7 @@
 LOG_FILE="$HOME/.openclaw/workspace/projects/unified-mc/logs/keepalive.log"
 PID_FILE="$HOME/.openclaw/workspace/projects/unified-mc/.next/server.pid"
 APP_DIR="$HOME/.openclaw/workspace/projects/unified-mc"
-PORT=3000
+PORT=5173
 
 # Ensure log directory exists
 mkdir -p "$(dirname "$LOG_FILE")"

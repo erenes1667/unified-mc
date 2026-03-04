@@ -6,7 +6,7 @@ set -e
 
 REPO_URL="https://github.com/erenes1667/unified-mc.git"  # Update this
 APP_DIR="$HOME/.openclaw/workspace/projects/unified-mc"
-PORT=3000
+PORT=5173
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
