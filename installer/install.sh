@@ -1,159 +1,189 @@
 #!/bin/bash
-# Unified Mission Control + OpenClaw Installer
-# One command: curl -sSL https://install.openclaw.ai/mc | bash
-# Or locally: bash install.sh
+# Unified MC Installer - One command to rule them all
+# Usage: curl -sSL https://raw.githubusercontent.com/yourrepo/install.sh | bash
 
-set -euo pipefail
+set -e
 
-echo "╔═══════════════════════════════════════════╗"
-echo "║  Unified Mission Control — Installer      ║"
-echo "║  OpenClaw + Dashboard + Antigravity       ║"
-echo "╚═══════════════════════════════════════════╝"
-echo ""
-
-# Colors
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-GOLD='\033[0;33m'
+REPO_URL="https://github.com/erenes1667/unified-mc.git"  # Update this
+APP_DIR="$HOME/.openclaw/workspace/projects/unified-mc"
+PORT=3000
 RED='\033[0;31m'
-NC='\033[0m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-log() { echo -e "${CYAN}[MC]${NC} $1"; }
-ok()  { echo -e "${GREEN}[✓]${NC} $1"; }
-err() { echo -e "${RED}[✗]${NC} $1"; }
+log() {
+  echo -e "${BLUE}[Unified MC]${NC} $1"
+}
 
-# ── Step 1: Check prerequisites ──
-log "Checking prerequisites..."
+success() {
+  echo -e "${GREEN}✓${NC} $1"
+}
 
-if ! command -v node &>/dev/null; then
-    err "Node.js not found. Install via: curl -fsSL https://fnm.vercel.app/install | bash && fnm install 22"
+error() {
+  echo -e "${RED}✗${NC} $1"
+}
+
+# Check prerequisites
+check_prereqs() {
+  log "Checking prerequisites..."
+  
+  if ! command -v node &> /dev/null; then
+    error "Node.js not found. Please install Node.js 18+ first."
     exit 1
-fi
-
-NODE_VER=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VER" -lt 20 ]; then
-    err "Node.js 20+ required (found v${NODE_VER}). Run: fnm install 22"
+  fi
+  
+  NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+  if [ "$NODE_VERSION" -lt 18 ]; then
+    error "Node.js 18+ required. Found: $(node -v)"
     exit 1
-fi
-ok "Node.js $(node -v)"
-
-if ! command -v npm &>/dev/null; then
-    err "npm not found"
+  fi
+  success "Node.js $(node -v)"
+  
+  if ! command -v git &> /dev/null; then
+    error "Git not found. Please install Git first."
     exit 1
-fi
-ok "npm $(npm -v)"
+  fi
+  success "Git available"
+}
 
-# ── Step 2: Install OpenClaw ──
-log "Installing OpenClaw..."
-if command -v openclaw &>/dev/null; then
-    ok "OpenClaw already installed ($(openclaw --version 2>/dev/null || echo 'unknown'))"
-else
-    npm install -g openclaw
-    ok "OpenClaw installed"
-fi
+# Clone or update repo
+setup_repo() {
+  log "Setting up repository..."
+  
+  if [ -d "$APP_DIR/.git" ]; then
+    log "Existing repo found, pulling updates..."
+    cd "$APP_DIR"
+    git pull origin main || git pull origin master
+  else
+    log "Cloning fresh repo..."
+    mkdir -p "$(dirname "$APP_DIR")"
+    git clone "$REPO_URL" "$APP_DIR"
+    cd "$APP_DIR"
+  fi
+  success "Repository ready at $APP_DIR"
+}
 
-# ── Step 3: Clone or update Unified MC ──
-MC_DIR="$HOME/.openclaw/unified-mc"
-log "Setting up Unified Mission Control at ${MC_DIR}..."
+# Install dependencies
+install_deps() {
+  log "Installing dependencies..."
+  cd "$APP_DIR"
+  npm install
+  success "Dependencies installed"
+}
 
-if [ -d "$MC_DIR" ]; then
-    log "Updating existing installation..."
-    cd "$MC_DIR" && git pull --rebase 2>/dev/null || true
-else
-    # For now, copy from local. In production, this would be git clone.
-    if [ -d "$(dirname "$0")/../app" ]; then
-        cp -r "$(dirname "$0")/.." "$MC_DIR"
-        ok "Copied from local source"
-    else
-        err "No source found. Clone the repo first."
-        exit 1
+# Build the app
+build_app() {
+  log "Building application..."
+  cd "$APP_DIR"
+  npm run build
+  success "Build complete"
+}
+
+# Install launchd service (macOS)
+install_service() {
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    log "Installing launchd service..."
+    
+    mkdir -p ~/Library/LaunchAgents
+    cp "$APP_DIR/installer/com.eneseren.unified-mc.plist" ~/Library/LaunchAgents/
+    
+    launchctl unload ~/Library/LaunchAgents/com.eneseren.unified-mc.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/com.eneseren.unified-mc.plist
+    
+    success "LaunchAgent installed. Service will auto-start on boot."
+  else
+    log "Linux detected. Creating systemd service..."
+    
+    sudo tee /etc/systemd/system/unified-mc.service > /dev/null <<EOF
+[Unit]
+Description=Unified Mission Control
+After=network.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$APP_DIR
+Environment=PORT=$PORT
+Environment=PATH=$PATH
+ExecStart=$(which npm) start
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    sudo systemctl daemon-reload
+    sudo systemctl enable unified-mc
+    sudo systemctl start unified-mc
+    
+    success "Systemd service installed and started."
+  fi
+}
+
+# Start the app
+start_app() {
+  log "Starting application..."
+  
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    launchctl start com.eneseren.unified-mc 2>/dev/null || true
+  else
+    sudo systemctl start unified-mc 2>/dev/null || true
+  fi
+  
+  # Wait for server
+  log "Waiting for server to start..."
+  for i in {1..30}; do
+    if curl -s http://localhost:$PORT > /dev/null 2>&1; then
+      success "Server is running on http://localhost:$PORT"
+      return 0
     fi
-fi
+    sleep 1
+  done
+  
+  error "Server failed to start within 30 seconds"
+  return 1
+}
 
-cd "$MC_DIR"
+# Print final info
+print_info() {
+  echo ""
+  echo "========================================"
+  echo "  Unified MC Installation Complete!"
+  echo "========================================"
+  echo ""
+  echo "🌐 Web UI:     http://localhost:$PORT"
+  echo "📁 App Folder:  $APP_DIR"
+  echo "📊 API Status:  http://localhost:$PORT/api/cron"
+  echo ""
+  echo "Mission Control button in mickey-webchat now opens:"
+  echo "  http://localhost:$PORT"
+  echo ""
+  echo "To view logs:"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "  tail -f $APP_DIR/logs/stderr.log"
+  else
+    echo "  sudo journalctl -u unified-mc -f"
+  fi
+  echo ""
+  echo "========================================"
+}
 
-# ── Step 4: Install dependencies ──
-log "Installing dependencies..."
-npm install --silent 2>/dev/null
-ok "Dependencies installed"
+# Main
+main() {
+  echo ""
+  echo "🚀 Unified Mission Control Installer"
+  echo "====================================="
+  echo ""
+  
+  check_prereqs
+  setup_repo
+  install_deps
+  build_app
+  install_service
+  start_app
+  print_info
+}
 
-# ── Step 5: Set up role ──
-echo ""
-echo "Select your role:"
-echo "  1) Emperor (full access, no limits)"
-echo "  2) Marketing (chat + email tools)"
-echo "  3) Development (chat + projects + pipeline)"
-echo "  4) PPC (chat only)"
-echo "  5) Admin (read-only fleet view)"
-echo ""
-read -p "Role [1-5, default 2]: " ROLE_CHOICE
-
-case "${ROLE_CHOICE:-2}" in
-    1) ROLE="emperor" ;;
-    2) ROLE="marketing" ;;
-    3) ROLE="dev" ;;
-    4) ROLE="ppc" ;;
-    5) ROLE="admin" ;;
-    *) ROLE="marketing" ;;
-esac
-
-echo "MC_ROLE=${ROLE}" > "$MC_DIR/.env.local"
-ok "Role set to: ${ROLE}"
-
-# ── Step 6: Configure OpenClaw (if not already) ──
-if [ ! -f "$HOME/.openclaw/openclaw.json" ]; then
-    log "Running OpenClaw setup..."
-    openclaw setup 2>/dev/null || true
-    ok "OpenClaw configured"
-else
-    ok "OpenClaw already configured"
-fi
-
-# ── Step 7: Set up Antigravity ──
-log "Installing Antigravity self-healer..."
-
-ANTIGRAVITY_SCRIPT="$MC_DIR/antigravity/monitor.sh"
-mkdir -p "$MC_DIR/antigravity"
-
-cat > "$ANTIGRAVITY_SCRIPT" << 'ANTI'
-#!/bin/bash
-# Antigravity — OpenClaw self-healer
-# Checks gateway health every 5 minutes, auto-restarts if down
-
-while true; do
-    if ! curl -s http://127.0.0.1:18789/health > /dev/null 2>&1; then
-        echo "[Antigravity] $(date): Gateway down, restarting..."
-        openclaw gateway restart 2>/dev/null || openclaw gateway start 2>/dev/null
-        sleep 10
-        if curl -s http://127.0.0.1:18789/health > /dev/null 2>&1; then
-            echo "[Antigravity] $(date): Gateway recovered"
-        else
-            echo "[Antigravity] $(date): Recovery failed, will retry"
-        fi
-    fi
-    sleep 300
-done
-ANTI
-chmod +x "$ANTIGRAVITY_SCRIPT"
-ok "Antigravity installed"
-
-# ── Step 8: Build ──
-log "Building dashboard..."
-npm run build --silent 2>/dev/null
-ok "Build complete"
-
-# ── Done ──
-echo ""
-echo -e "${GOLD}╔═══════════════════════════════════════════╗${NC}"
-echo -e "${GOLD}║  ✅ Installation Complete!                ║${NC}"
-echo -e "${GOLD}╚═══════════════════════════════════════════╝${NC}"
-echo ""
-echo "To start:"
-echo "  1. Start OpenClaw:  openclaw gateway start"
-echo "  2. Start dashboard: cd ${MC_DIR} && npm run dev"
-echo "  3. Start healer:    ${ANTIGRAVITY_SCRIPT} &"
-echo ""
-echo "Or all at once:"
-echo "  cd ${MC_DIR} && openclaw gateway start && npm run dev &"
-echo ""
-echo "Open: http://localhost:3000"
+main "$@"
