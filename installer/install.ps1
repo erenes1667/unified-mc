@@ -21,23 +21,68 @@ Write-Host ''
 # --- Prerequisites ---
 Log 'Checking prerequisites...'
 
-$hasNode = Get-Command node -ErrorAction SilentlyContinue
-if (-not $hasNode) {
-    Caution 'Node.js not found.'
-    $hasWinget = Get-Command winget -ErrorAction SilentlyContinue
-    if ($hasWinget) {
-        Log 'Installing Node.js via winget...'
-        winget install OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements
-        $m = [Environment]::GetEnvironmentVariable('PATH','Machine')
-        $u = [Environment]::GetEnvironmentVariable('PATH','User')
-        $env:PATH = $m + ';' + $u
-    } else {
-        Bad 'Node.js is required. Install from https://nodejs.org'
-        exit 1
-    }
+# Disable Windows Store shims for node/npm if they exist
+$aliasPath = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps'
+$storeNode = Join-Path $aliasPath 'node.exe'
+$storeNpm = Join-Path $aliasPath 'npm.cmd'
+if ((Test-Path $storeNode) -and (Get-Item $storeNode).Length -lt 10000) {
+    Log 'Removing Windows Store node shim...'
+    Remove-Item $storeNode -Force -ErrorAction SilentlyContinue
+    Remove-Item $storeNpm -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $aliasPath 'npx.cmd') -Force -ErrorAction SilentlyContinue
 }
 
-$nv = (node -v 2>$null) -replace '[^0-9.]',''
+# Find real node (not the Store shim)
+function FindRealNode {
+    $candidates = @(
+        'C:\Program Files\nodejs\node.exe'
+        'C:\Program Files (x86)\nodejs\node.exe'
+        (Join-Path $env:APPDATA 'nvm\current\node.exe')
+        (Join-Path $env:USERPROFILE 'scoop\apps\nodejs\current\node.exe')
+    )
+    foreach ($c in $candidates) {
+        if (Test-Path $c) { return $c }
+    }
+    $found = Get-Command node -ErrorAction SilentlyContinue
+    if ($found) {
+        $nv = & $found.Source -v 2>$null
+        if ($nv -match 'v\d+') { return $found.Source }
+    }
+    return $null
+}
+
+$nodeExe = FindRealNode
+if (-not $nodeExe) {
+    Log 'Node.js not found. Installing automatically...'
+    $hasWinget = Get-Command winget -ErrorAction SilentlyContinue
+    if ($hasWinget) {
+        winget install OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements --silent
+    } else {
+        Log 'Downloading Node.js installer...'
+        $nodeInstaller = Join-Path $env:TEMP 'node-install.msi'
+        Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.15.0/node-v22.15.0-x64.msi' -OutFile $nodeInstaller
+        Log 'Running Node.js installer (this may take a minute)...'
+        Start-Process msiexec.exe -ArgumentList "/i `"$nodeInstaller`" /qn" -Wait
+    }
+    # Refresh PATH
+    $m = [Environment]::GetEnvironmentVariable('PATH','Machine')
+    $u = [Environment]::GetEnvironmentVariable('PATH','User')
+    $env:PATH = $m + ';' + $u
+    $nodeExe = FindRealNode
+}
+
+if (-not $nodeExe) {
+    Bad 'Failed to install Node.js. Please install manually from https://nodejs.org'
+    exit 1
+}
+
+# Add node dir to PATH for this session
+$nodeDir = Split-Path $nodeExe -Parent
+if ($env:PATH -notlike "*$nodeDir*") {
+    $env:PATH = $nodeDir + ';' + $env:PATH
+}
+
+$nv = (& $nodeExe -v 2>$null) -replace '[^0-9.]',''
 $major = ($nv -split '\.')[0]
 if ($major -lt 18) {
     Bad "Node.js 18+ required. Found: v$nv"
@@ -47,18 +92,30 @@ Ok "Node.js v$nv"
 
 $hasGit = Get-Command git -ErrorAction SilentlyContinue
 if (-not $hasGit) {
-    Caution 'Git not found.'
+    Log 'Git not found. Installing automatically...'
     $hasWinget = Get-Command winget -ErrorAction SilentlyContinue
     if ($hasWinget) {
-        Log 'Installing Git via winget...'
-        winget install Git.Git --accept-package-agreements --accept-source-agreements
-        $m = [Environment]::GetEnvironmentVariable('PATH','Machine')
-        $u = [Environment]::GetEnvironmentVariable('PATH','User')
-        $env:PATH = $m + ';' + $u
+        winget install Git.Git --accept-package-agreements --accept-source-agreements --silent
     } else {
-        Bad 'Git is required. Install from https://git-scm.com'
-        exit 1
+        Log 'Downloading Git installer...'
+        $gitInstaller = Join-Path $env:TEMP 'git-install.exe'
+        Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe' -OutFile $gitInstaller
+        Log 'Running Git installer...'
+        Start-Process $gitInstaller -ArgumentList '/VERYSILENT /NORESTART' -Wait
     }
+    $m = [Environment]::GetEnvironmentVariable('PATH','Machine')
+    $u = [Environment]::GetEnvironmentVariable('PATH','User')
+    $env:PATH = $m + ';' + $u
+    # Also check common Git install path
+    $gitPath = 'C:\Program Files\Git\cmd'
+    if ((Test-Path $gitPath) -and ($env:PATH -notlike "*$gitPath*")) {
+        $env:PATH = $gitPath + ';' + $env:PATH
+    }
+}
+$hasGit = Get-Command git -ErrorAction SilentlyContinue
+if (-not $hasGit) {
+    Bad 'Failed to install Git. Please install from https://git-scm.com'
+    exit 1
 }
 Ok 'Git available'
 
