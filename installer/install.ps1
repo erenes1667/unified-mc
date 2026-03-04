@@ -1,7 +1,7 @@
 # Unified Mission Control Installer for Windows
 # Usage: irm https://raw.githubusercontent.com/erenes1667/unified-mc/main/installer/install.ps1 -OutFile $env:TEMP\umc.ps1; & $env:TEMP\umc.ps1
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 
 $REPO_URL = 'https://github.com/erenes1667/unified-mc.git'
 $APP_DIR = Join-Path $env:USERPROFILE '.openclaw\workspace\projects\unified-mc'
@@ -136,7 +136,8 @@ Log 'Setting up repository...'
 if (Test-Path (Join-Path $APP_DIR '.git')) {
     Log 'Existing repo found, pulling updates...'
     Set-Location $APP_DIR
-    git pull origin main 2>$null
+    $gitOut = git pull origin main 2>&1
+    # Git writes progress to stderr which PowerShell treats as error - ignore it
 } else {
     Log 'Cloning fresh repo...'
     $parentDir = Split-Path $APP_DIR -Parent
