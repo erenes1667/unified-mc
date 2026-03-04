@@ -32,7 +32,9 @@ if (-not $node) {
     if ($winget) {
         Log "Installing Node.js via winget..."
         winget install OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements
-        $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
+        $machPath = [System.Environment]::GetEnvironmentVariable('PATH','Machine')
+        $userPath = [System.Environment]::GetEnvironmentVariable('PATH','User')
+        $env:PATH = "$machPath;$userPath"
     } else {
         Err "Node.js is required. Install from https://nodejs.org or run:"
         Err "  winget install OpenJS.NodeJS.LTS"
@@ -57,7 +59,9 @@ if (-not $git) {
     if ($winget) {
         Log "Installing Git via winget..."
         winget install Git.Git --accept-package-agreements --accept-source-agreements
-        $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
+        $machPath = [System.Environment]::GetEnvironmentVariable('PATH','Machine')
+        $userPath = [System.Environment]::GetEnvironmentVariable('PATH','User')
+        $env:PATH = "$machPath;$userPath"
     } else {
         Err "Git is required. Install from https://git-scm.com"
         exit 1
