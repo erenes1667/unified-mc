@@ -39,8 +39,9 @@ if (-not $node) {
     }
 }
 
-$nodeVersion = (node -v) -replace 'v(\d+)\..*', '$1'
-if ([int]$nodeVersion -lt 18) {
+$nodeVersionStr = (node -v).Trim()
+$nodeVersion = [int]($nodeVersionStr.Split('.')[0] -replace '[^0-9]','')
+if ($nodeVersion -lt 18) {
     Err "Node.js 18+ required. Found: $(node -v)"
     exit 1
 }
