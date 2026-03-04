@@ -15,7 +15,7 @@ interface Agent {
 
 const agents: Agent[] = [
   { name: 'Cleon', emoji: '👑', role: 'Emperor', status: 'online', row: 1, col: 3 },
-  { name: 'Mickey17', emoji: '⚙️', role: 'Ops', status: 'busy', row: 1, col: 1 },
+  { name: 'Agent', emoji: '⚙️', role: 'Ops', status: 'busy', row: 1, col: 1 },
   { name: 'Forge', emoji: '🔨', role: 'Dev', status: 'online', row: 1, col: 5 },
   { name: 'Raven', emoji: '🔍', role: 'Research', status: 'idle', row: 2, col: 1 },
   { name: 'Whisper', emoji: '🎨', role: 'Design', status: 'online', row: 2, col: 3 },

@@ -143,7 +143,7 @@ const pipelines: Pipeline[] = [
     repo: 'email-service',
     branch: 'hotfix/bounce-handler',
     commit: 'f3e7a90',
-    author: 'Mickey17',
+    author: 'Agent',
     timeAgo: '5m ago',
     totalDuration: '0m 31s',
     stages: [
