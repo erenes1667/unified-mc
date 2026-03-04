@@ -1,5 +1,6 @@
 # Unified Mission Control Installer for Windows
-# Usage: irm https://raw.githubusercontent.com/erenes1667/unified-mc/main/installer/install.ps1 | iex
+# Usage: powershell -c "& {irm https://raw.githubusercontent.com/erenes1667/unified-mc/main/installer/install.ps1 -OutFile $env:TEMP\umc-install.ps1; & $env:TEMP\umc-install.ps1}"
+# Or:   irm https://raw.githubusercontent.com/erenes1667/unified-mc/main/installer/install.ps1 -OutFile install.ps1; .\install.ps1
 
 $ErrorActionPreference = "Stop"
 
@@ -39,13 +40,14 @@ if (-not $node) {
     }
 }
 
-$nodeVersionStr = (node -v).Trim()
-$nodeVersion = [int]($nodeVersionStr.Split('.')[0] -replace '[^0-9]','')
-if ($nodeVersion -lt 18) {
-    Err "Node.js 18+ required. Found: $(node -v)"
+$nodeRaw = node -v 2>$null
+$nodeMajor = $nodeRaw -replace 'v(\d+).*','$1'
+$nodeNum = 0 + $nodeMajor
+if ($nodeNum -lt 18) {
+    Err "Node.js 18+ required. Found: $nodeRaw"
     exit 1
 }
-Success "Node.js $(node -v)"
+Success "Node.js $nodeRaw"
 
 # Git
 $git = Get-Command git -ErrorAction SilentlyContinue
