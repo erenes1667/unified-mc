@@ -37,7 +37,7 @@ interface RoleCfg {
 
 const GATEWAY_URL = 'ws://127.0.0.1:18789';
 const CLIENT_ID = 'openclaw-control-ui';
-const FALLBACK_TOKEN = 'REDACTED_TOKEN';
+const FALLBACK_TOKEN = null; // Set during onboarding
 const DEVICE_STORAGE_KEY = 'umc-device-identity-v1';
 const DEVICE_TOKEN_STORAGE_KEY = 'umc-device-tokens-v1';
 
@@ -359,7 +359,7 @@ export default function ChatPage() {
       nonce: string;
     } | null = null;
 
-    let authToken: string | null = FALLBACK_TOKEN;
+    let authToken: string | null = null;
 
     try {
       const ed = await import('@noble/ed25519');
@@ -862,7 +862,7 @@ export default function ChatPage() {
               sendMessage();
             }
           }}
-          placeholder={status === 'connected' ? 'Message Mickey17... (Shift+Enter for newline)' : 'Connecting to gateway...'}
+          placeholder={status === 'connected' ? 'Message your assistant... (Shift+Enter for newline)' : 'Connecting to gateway...'}
           disabled={status !== 'connected'}
           rows={1}
           style={{

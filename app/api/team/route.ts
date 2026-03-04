@@ -1,8 +1,9 @@
+import os from 'os';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const AGENTS_DIR = '/Users/eneseren/.openclaw/workspace/agents';
+const AGENTS_DIR = path.join(os.homedir(), '.openclaw', 'workspace', 'agents');
 
 // Hardcoded agent metadata
 const AGENT_META: Record<

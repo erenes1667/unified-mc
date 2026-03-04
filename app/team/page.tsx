@@ -54,7 +54,7 @@ export default function TeamPage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>
-          Dynasty Team
+          Agent Team
         </h1>
         <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
           {agents.length} agents deployed

@@ -7,7 +7,7 @@ import { loadRole, NAV_ITEMS } from '@/lib/roles';
 
 export const metadata: Metadata = {
   title: 'Unified Mission Control',
-  description: 'Dynasty command center — Mickey17',
+  description: 'Unified Mission Control',
 };
 
 // Role is read server-side; default to emperor for Enes's machine

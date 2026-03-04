@@ -1,6 +1,6 @@
 # Unified Mission Control
 
-Dynasty command center with glassmorphism UI, real-time chat, agent team view, cron calendar, memory browser, and project explorer.
+Unified Mission Control dashboard with glassmorphism UI, real-time chat, agent team view, cron calendar, memory browser, and project explorer.
 
 ## Quick Start
 

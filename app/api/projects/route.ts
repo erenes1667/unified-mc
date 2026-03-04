@@ -1,8 +1,9 @@
+import os from 'os';
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 
-const PROJECTS_DIR = '/Users/eneseren/.openclaw/workspace/projects';
+const PROJECTS_DIR = path.join(os.homedir(), '.openclaw', 'workspace', 'projects');
 
 export async function GET() {
   try {

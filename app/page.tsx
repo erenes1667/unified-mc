@@ -8,10 +8,10 @@ const QUICK_STATS = [
 ];
 
 const RECENT_ACTIVITY = [
-  { time: '10:42', agent: 'Mickey17', action: 'Spawned chunk 1 scaffold for unified-mc', icon: '⚡' },
-  { time: '10:38', agent: 'Cleon', action: 'Wrote HANDOFF-MAR4.md with full build spec', icon: '📋' },
-  { time: '10:35', agent: 'Demerzel', action: 'Checked O7 OS codebase for reusable modules', icon: '🔍' },
-  { time: '10:20', agent: 'Varys', action: 'Processed 3 incoming emails, flagged 1 for Enes', icon: '📧' },
+  { time: '10:42', agent: 'Agent', action: 'Completed onboarding setup', icon: '⚡' },
+  { time: '10:38', agent: 'Cleon', action: 'Generated workspace configuration', icon: '📋' },
+  { time: '10:35', agent: 'Demerzel', action: 'Scanned project files for context', icon: '🔍' },
+  { time: '10:20', agent: 'Varys', action: 'Processed incoming messages', icon: '📧' },
 ];
 
 export default function Home() {
@@ -20,10 +20,10 @@ export default function Home() {
       {/* Welcome */}
       <div style={{ marginBottom: 32 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#c9a84c', marginBottom: 4 }}>
-          ⚡ Dynasty Command Center
+          ⚡ Command Center
         </h1>
         <p style={{ fontSize: 13, color: '#6b7280' }}>
-          Welcome back, Emperor. All systems nominal.
+          Welcome back. All systems nominal.
         </p>
       </div>
 

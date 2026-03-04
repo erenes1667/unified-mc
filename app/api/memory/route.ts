@@ -1,8 +1,9 @@
+import os from 'os';
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 
-const MEMORY_DIR = '/Users/eneseren/.openclaw/workspace/memory';
+const MEMORY_DIR = path.join(os.homedir(), '.openclaw', 'workspace', 'memory');
 
 export async function GET(req: NextRequest) {
   const file = req.nextUrl.searchParams.get('file');

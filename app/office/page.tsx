@@ -5,7 +5,7 @@ export default function OfficePage() {
     <PlaceholderPage
       icon="🏢"
       title="Office"
-      description="2D pixel art Dynasty office with live agent positions"
+      description="2D pixel art office with live agent positions"
     />
   );
 }
