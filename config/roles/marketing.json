@@ -1,0 +1,10 @@
+{
+  "role": "marketing",
+  "label": "Marketing",
+  "rateLimit": 5,
+  "modelWaterfall": true,
+  "panels": ["chat", "email-ops", "settings"],
+  "theme": {
+    "accentLabel": "team"
+  }
+}

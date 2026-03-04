@@ -1,7 +1,8 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Allow reading local files in config/
+  serverExternalPackages: ['fs'],
 };
 
 export default nextConfig;

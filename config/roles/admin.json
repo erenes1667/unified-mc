@@ -1,0 +1,10 @@
+{
+  "role": "admin",
+  "label": "Admin",
+  "rateLimit": null,
+  "modelWaterfall": false,
+  "panels": ["usage", "admin", "team", "activity", "settings"],
+  "theme": {
+    "accentLabel": "admin"
+  }
+}

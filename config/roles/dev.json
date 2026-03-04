@@ -1,0 +1,10 @@
+{
+  "role": "dev",
+  "label": "Developer",
+  "rateLimit": 10,
+  "modelWaterfall": true,
+  "panels": ["chat", "tasks", "projects", "pipeline", "activity", "settings"],
+  "theme": {
+    "accentLabel": "dev"
+  }
+}

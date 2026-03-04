@@ -1,0 +1,15 @@
+{
+  "role": "emperor",
+  "label": "Emperor",
+  "rateLimit": null,
+  "modelWaterfall": false,
+  "panels": [
+    "chat", "tasks", "team", "memory", "calendar", "activity",
+    "projects", "docs", "email-ops", "kde-metrics", "usage",
+    "admin", "directives", "approvals", "office", "radar",
+    "pipeline", "settings"
+  ],
+  "theme": {
+    "accentLabel": "imperial gold"
+  }
+}

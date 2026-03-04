@@ -1,0 +1,10 @@
+{
+  "role": "ppc",
+  "label": "PPC",
+  "rateLimit": 5,
+  "modelWaterfall": true,
+  "panels": ["chat", "kde-metrics", "settings"],
+  "theme": {
+    "accentLabel": "ppc"
+  }
+}
