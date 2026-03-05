@@ -292,7 +292,7 @@ function buildOpenclawJson(config) {
           input: ['text', 'image'],
           cost: { input: 2.5, output: 10 },
           contextWindow: 128000,
-          maxTokens: 16384,
+          maxTokens: 16384, // verified: openai docs
         },
         {
           id: 'gpt-4o-mini',
@@ -302,7 +302,7 @@ function buildOpenclawJson(config) {
           input: ['text', 'image'],
           cost: { input: 0.15, output: 0.6 },
           contextWindow: 128000,
-          maxTokens: 16384,
+          maxTokens: 16384, // verified: openai docs
         },
       ],
     };
@@ -320,7 +320,7 @@ function buildOpenclawJson(config) {
           input: ['text', 'image'],
           cost: { input: 0, output: 0 },
           contextWindow: 1048576,
-          maxTokens: 65536,
+          maxTokens: 8192, // verified: google docs (hard limit for 2.0 Flash)
         },
       ],
     };
