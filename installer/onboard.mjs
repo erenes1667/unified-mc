@@ -250,11 +250,11 @@ function buildOpenclawJson(config) {
           id: 'claude-sonnet-4-20250514',
           name: 'Claude Sonnet 4',
           api: 'anthropic-messages',
-          reasoning: false,
+          reasoning: true,
           input: ['text', 'image'],
           cost: { input: 3, output: 15 },
           contextWindow: 200000,
-          maxTokens: 8192,
+          maxTokens: 64000,
         },
         {
           id: 'claude-haiku-4-5-20251001',
@@ -264,7 +264,7 @@ function buildOpenclawJson(config) {
           input: ['text', 'image'],
           cost: { input: 0.8, output: 4 },
           contextWindow: 200000,
-          maxTokens: 8192,
+          maxTokens: 64000,
         },
       ],
     };
@@ -282,7 +282,7 @@ function buildOpenclawJson(config) {
           input: ['text', 'image'],
           cost: { input: 2.5, output: 10 },
           contextWindow: 128000,
-          maxTokens: 4096,
+          maxTokens: 16384,
         },
         {
           id: 'gpt-4o-mini',
@@ -292,7 +292,7 @@ function buildOpenclawJson(config) {
           input: ['text', 'image'],
           cost: { input: 0.15, output: 0.6 },
           contextWindow: 128000,
-          maxTokens: 4096,
+          maxTokens: 16384,
         },
       ],
     };
@@ -306,11 +306,31 @@ function buildOpenclawJson(config) {
           id: 'gemini-2.0-flash',
           name: 'Gemini 2.0 Flash',
           api: 'openai-completions',
-          reasoning: false,
+          reasoning: true,
           input: ['text', 'image'],
           cost: { input: 0, output: 0 },
           contextWindow: 1048576,
-          maxTokens: 8192,
+          maxTokens: 65536,
+        },
+      ],
+    };
+  }
+
+  // Ollama / Kimi K2.5 Cloud — always add if key was provided
+  if (config.ollamaKey) {
+    providers.ollama = {
+      baseUrl: 'https://ollama.com/v1',
+      apiKey: config.ollamaKey,
+      models: [
+        {
+          id: 'kimi-k2.5:cloud',
+          name: 'Kimi K2.5 Cloud',
+          api: 'openai-completions',
+          reasoning: true,
+          input: ['text'],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 131072,
+          maxTokens: 65536,
         },
       ],
     };
@@ -319,7 +339,8 @@ function buildOpenclawJson(config) {
   // Determine default model
   let defaultModel = 'anthropic/claude-sonnet-4-20250514';
   if (!config.anthropicKey && config.openaiKey) defaultModel = 'openai/gpt-4o';
-  if (!config.anthropicKey && !config.openaiKey && config.geminiKey) defaultModel = 'google/gemini-2.0-flash';
+  if (!config.anthropicKey && !config.openaiKey && config.ollamaKey) defaultModel = 'ollama/kimi-k2.5:cloud';
+  if (!config.anthropicKey && !config.openaiKey && !config.ollamaKey && config.geminiKey) defaultModel = 'google/gemini-2.0-flash';
 
   return {
     meta: {
@@ -637,6 +658,7 @@ async function phaseAISetup() {
   info('   3. Click "Create new key" and copy it');
   console.log('');
 
+  let ollamaKey = '';
   if (await askYesNo('   Set up Kimi K2.5?')) {
     const key = await setupProviderWithRetry(
       'Ollama', 'ollama',
@@ -646,6 +668,7 @@ async function phaseAISetup() {
       { baseUrl: 'https://ollama.com/v1' }
     );
     if (key) {
+      ollamaKey = key;
       writeAuthProfile('ollama:cloud', 'ollama', key, { baseUrl: 'https://ollama.com/v1' });
       results.kimi = 'ok';
       success('Kimi K2.5 configured and verified! ✨');
@@ -670,6 +693,7 @@ async function phaseAISetup() {
   info('   3. Copy the key (starts with "AIza...")');
   console.log('');
 
+  let geminiKey = '';
   if (await askYesNo('   Set up Gemini for self-healing?', false)) {
     const key = await setupProviderWithRetry(
       'Gemini', 'google',
@@ -678,6 +702,7 @@ async function phaseAISetup() {
       'AIza'
     );
     if (key) {
+      geminiKey = key;
       writeAuthProfile('gemini:default', 'google', key);
       // Also save for Antigravity
       const envLine = `GEMINI_API_KEY=${key}\n`;
@@ -702,7 +727,7 @@ async function phaseAISetup() {
   if (working === 0) {
     if (DRY_RUN) {
       warn('No models configured (dry-run mode, continuing anyway).');
-      return { anthropicKey: '', openaiKey: '', geminiKey: '', authResults: results };
+      return { anthropicKey: '', openaiKey: '', geminiKey: '', ollamaKey: '', authResults: results };
     }
     error('You need at least one AI model to continue.');
     error('Re-run the wizard to try again.');
@@ -710,7 +735,7 @@ async function phaseAISetup() {
   }
 
   success(`${working} model${working > 1 ? 's' : ''} ready to go!`);
-  return { anthropicKey: '', openaiKey: '', geminiKey: '', authResults: results };
+  return { anthropicKey: '', openaiKey: '', geminiKey, ollamaKey, authResults: results };
 }
 
 // ─── Phase 3: Agent Setup ────────────────────────────────────────────────────
@@ -799,6 +824,7 @@ function phaseGenerate(data) {
     anthropicKey: data.ai.anthropicKey,
     openaiKey: data.ai.openaiKey,
     geminiKey: data.ai.geminiKey,
+    ollamaKey: data.ai.ollamaKey,
     agentName: data.agent.agentName,
     agentEmoji: data.agent.agentEmoji,
   });
