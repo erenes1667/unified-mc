@@ -234,6 +234,60 @@ start_app() {
 
 # ─── Final Summary ────────────────────────────────────────────────────────────
 
+setup_antigravity() {
+  log "Setting up Antigravity self-healer..."
+
+  ANTIGRAVITY_SRC="$INSTALLER_DIR/lib/antigravity-standalone.sh"
+  ANTIGRAVITY_DST="$HOME/.openclaw/antigravity/antigravity.sh"
+
+  if [[ ! -f "$ANTIGRAVITY_SRC" ]]; then
+    warn "Antigravity script not found in installer bundle. Skipping."
+    return 0
+  fi
+
+  # Install the standalone health checker
+  mkdir -p "$(dirname "$ANTIGRAVITY_DST")"
+  cp "$ANTIGRAVITY_SRC" "$ANTIGRAVITY_DST"
+  chmod +x "$ANTIGRAVITY_DST"
+  success "Antigravity installed at $ANTIGRAVITY_DST"
+
+  # Run initial health check
+  log "Running initial health check..."
+  bash "$ANTIGRAVITY_DST" health || true
+
+  # Install launchd timer (every 30 min)
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    local AG_PLIST="$HOME/Library/LaunchAgents/com.o7.antigravity.plist"
+    cat > "$AG_PLIST" << AGEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.o7.antigravity</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>${ANTIGRAVITY_DST}</string>
+        <string>health</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>1800</integer>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/tmp/antigravity.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/antigravity.err</string>
+</dict>
+</plist>
+AGEOF
+    launchctl unload "$AG_PLIST" 2>/dev/null || true
+    launchctl load "$AG_PLIST" 2>/dev/null
+    success "Antigravity auto-healer: runs every 30 minutes"
+  fi
+}
+
 print_summary() {
   echo ""
   echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -243,9 +297,11 @@ print_summary() {
   echo -e "   ${BOLD}🌐 Open:${NC}      http://localhost:$PORT"
   echo -e "   ${BOLD}📁 App:${NC}       $APP_DIR"
   echo -e "   ${BOLD}⚙️  Config:${NC}    ~/.openclaw/openclaw.json"
+  echo -e "   ${BOLD}🛡️  Healer:${NC}   Antigravity (auto-checks every 30 min)"
   echo ""
   echo -e "   ${DIM}View logs:  tail -f $APP_DIR/logs/stderr.log${NC}"
   echo -e "   ${DIM}Restart:    launchctl stop $PLIST_LABEL && launchctl start $PLIST_LABEL${NC}"
+  echo -e "   ${DIM}Health:     bash ~/.openclaw/antigravity/antigravity.sh health${NC}"
   echo ""
   echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo ""
@@ -262,6 +318,7 @@ main() {
   build_app
   install_service
   start_app
+  setup_antigravity
   print_summary
 }
 
