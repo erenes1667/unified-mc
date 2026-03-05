@@ -1,14 +1,23 @@
 #!/bin/bash
 # Unified MC Installer — One command to rule them all
 # Usage: curl -sSL https://raw.githubusercontent.com/erenes1667/unified-mc/main/installer/install.sh | bash
+#
+# What this does:
+# 1. Checks/installs prerequisites (Node, Git, Homebrew)
+# 2. Installs OpenClaw
+# 3. Clones Unified MC
+# 4. Runs the onboarding wizard (AI model login, personality, etc)
+# 5. Installs dependencies
+# 6. Starts MC in dev mode via launchd (auto-restarts, survives reboots)
+# 7. Sets up Antigravity self-healer (hourly)
 
-set -e
+set -euo pipefail
 
 REPO_URL="https://github.com/erenes1667/unified-mc.git"
 APP_DIR="$HOME/.openclaw/workspace/projects/unified-mc"
 INSTALLER_DIR="$APP_DIR/installer"
-PORT=5173
-PLIST_LABEL="com.unified-mc"
+PORT=3000
+PLIST_LABEL="com.o7.mission-control"
 PLIST_FILE="$HOME/Library/LaunchAgents/${PLIST_LABEL}.plist"
 
 # ─── Colors ────────────────────────────────────────────────────────────────────
@@ -22,247 +31,245 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
-log()     { echo -e "${BLUE}[Unified MC]${NC} $1"; }
-success() { echo -e "${GREEN}   ✓${NC} $1"; }
-warn()    { echo -e "${YELLOW}   ⚠ ${NC} $1"; }
-error()   { echo -e "${RED}   ✗${NC} $1"; }
+log()     { echo -e "${BLUE}[O7]${NC} $1"; }
+success() { echo -e "${GREEN}  ✓${NC} $1"; }
+warn()    { echo -e "${YELLOW}  ⚠${NC} $1"; }
+error()   { echo -e "${RED}  ✗${NC} $1"; }
 
 # ─── Phase 1: Prerequisites ───────────────────────────────────────────────────
 
 check_prereqs() {
   echo ""
   echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo -e "${BOLD}  🚀  Unified Mission Control Installer${NC}"
+  echo -e "${BOLD}  🚀  Optimum7 AI Assistant — Installer${NC}"
   echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo ""
-  log "Checking prerequisites..."
+  log "Checking your system..."
 
-  # Node.js
-  if ! command -v node &> /dev/null; then
-    warn "Node.js not found."
-    if [[ "$OSTYPE" == "darwin"* ]] && command -v brew &> /dev/null; then
-      log "Installing Node.js via Homebrew..."
-      brew install node
-    elif [[ "$OSTYPE" == "linux"* ]] && command -v apt-get &> /dev/null; then
-      log "Installing Node.js via apt..."
-      curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-      sudo apt-get install -y nodejs
-    elif [[ "$OSTYPE" == "linux"* ]] && command -v dnf &> /dev/null; then
-      log "Installing Node.js via dnf..."
-      sudo dnf install -y nodejs
-    else
-      error "Node.js is required. Install it from https://nodejs.org"
-      if [[ "$OSTYPE" == "darwin"* ]]; then
-        error "Or install Homebrew first: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-      fi
+  # macOS check
+  if [[ "$OSTYPE" != "darwin"* ]]; then
+    error "This installer is for macOS only."
+    error "For Linux, see: https://github.com/erenes1667/unified-mc#linux"
+    exit 1
+  fi
+
+  # Homebrew
+  if ! command -v brew &>/dev/null; then
+    log "Installing Homebrew (macOS package manager)..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # Add to PATH for Apple Silicon
+    if [[ -f /opt/homebrew/bin/brew ]]; then
+      eval "$(/opt/homebrew/bin/brew shellenv)"
+    fi
+    if ! command -v brew &>/dev/null; then
+      error "Homebrew install failed. Run this first:"
+      error '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
       exit 1
     fi
   fi
+  success "Homebrew"
 
-  NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-  if [ "$NODE_VERSION" -lt 18 ]; then
-    error "Node.js 18+ required. Found: $(node -v)"
-    error "Update with: brew upgrade node  (or visit https://nodejs.org)"
-    exit 1
+  # Node.js
+  if ! command -v node &>/dev/null; then
+    log "Installing Node.js..."
+    brew install node
+  fi
+  local node_major
+  node_major=$(node -v | sed 's/v//' | cut -d. -f1)
+  if (( node_major < 22 )); then
+    log "Upgrading Node.js (need v22+, found $(node -v))..."
+    brew upgrade node
   fi
   success "Node.js $(node -v)"
 
   # Git
-  if ! command -v git &> /dev/null; then
-    warn "Git not found."
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-      log "Installing Xcode Command Line Tools (includes Git)..."
-      xcode-select --install 2>/dev/null || true
-      error "Please re-run this installer after Xcode tools finish installing."
-      exit 1
-    elif command -v apt-get &> /dev/null; then
-      log "Installing Git via apt..."
-      sudo apt-get install -y git
-    elif command -v dnf &> /dev/null; then
-      log "Installing Git via dnf..."
-      sudo dnf install -y git
-    else
-      error "Git is required. Install it from https://git-scm.com"
-      exit 1
-    fi
+  if ! command -v git &>/dev/null; then
+    log "Installing Git..."
+    xcode-select --install 2>/dev/null || brew install git
   fi
-  success "Git available"
+  success "Git"
+
+  # pnpm (faster than npm for installs)
+  if ! command -v pnpm &>/dev/null; then
+    log "Installing pnpm..."
+    npm install -g pnpm 2>/dev/null
+  fi
+  if command -v pnpm &>/dev/null; then
+    success "pnpm"
+  fi
 }
 
 # ─── Phase 2: Install OpenClaw ────────────────────────────────────────────────
 
 setup_openclaw() {
-  log "Checking OpenClaw..."
+  log "Setting up OpenClaw..."
 
-  if command -v openclaw &> /dev/null; then
-    success "OpenClaw already installed"
+  if command -v openclaw &>/dev/null; then
+    success "OpenClaw $(openclaw --version 2>/dev/null || echo 'installed')"
+    # Update in background
+    npm install -g openclaw@latest &>/dev/null &
   else
-    log "Installing OpenClaw globally..."
-    npm install -g openclaw 2>/dev/null || warn "OpenClaw not available via npm (skipping)"
+    log "Installing OpenClaw..."
+    npm install -g openclaw@latest
+    if command -v openclaw &>/dev/null; then
+      success "OpenClaw $(openclaw --version 2>/dev/null)"
+    else
+      error "OpenClaw installation failed."
+      error "Try manually: npm install -g openclaw@latest"
+      exit 1
+    fi
   fi
 }
 
 # ─── Phase 3: Clone/Update Repo ───────────────────────────────────────────────
 
 setup_repo() {
-  log "Setting up repository..."
+  log "Getting Mission Control..."
 
-  if [ -d "$APP_DIR/.git" ]; then
-    log "Existing repo found, pulling updates..."
+  if [[ -d "$APP_DIR/.git" ]]; then
     cd "$APP_DIR"
-    git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || warn "Could not pull updates (continuing with existing)"
+    git pull --quiet origin main 2>/dev/null || git pull --quiet origin master 2>/dev/null || true
+    success "Updated to latest version"
   else
-    log "Cloning fresh repo..."
     mkdir -p "$(dirname "$APP_DIR")"
-    git clone "$REPO_URL" "$APP_DIR"
+    git clone --quiet "$REPO_URL" "$APP_DIR"
     cd "$APP_DIR"
+    success "Downloaded Mission Control"
   fi
-  success "Repository ready at $APP_DIR"
 }
 
 # ─── Phase 4: Interactive Onboarding ──────────────────────────────────────────
 
 run_onboarding() {
-  log "Starting onboarding wizard..."
+  log "Starting setup wizard..."
   echo ""
 
-  if [ -t 0 ]; then
-    # Interactive terminal — run the wizard
+  # curl | bash means stdin is the script, not the terminal.
+  # We need /dev/tty for interactive input.
+  if [[ -t 0 ]]; then
     node "$INSTALLER_DIR/onboard.mjs"
   else
-    # Piped input (curl | bash) — still try interactive via /dev/tty
-    node "$INSTALLER_DIR/onboard.mjs" < /dev/tty
+    # Redirect from /dev/tty so user can type
+    node "$INSTALLER_DIR/onboard.mjs" </dev/tty
   fi
 }
 
-# ─── Phase 5: Build & Launch ──────────────────────────────────────────────────
+# ─── Phase 5: Install Dependencies ────────────────────────────────────────────
 
 install_deps() {
-  log "Installing dependencies..."
+  log "Installing dependencies (this takes a minute)..."
   cd "$APP_DIR"
-  npm install --production=false 2>&1 | tail -1
+  if command -v pnpm &>/dev/null; then
+    pnpm install --silent 2>/dev/null || pnpm install
+  else
+    npm install 2>/dev/null || npm install
+  fi
   success "Dependencies installed"
 }
 
-build_app() {
-  log "Building application..."
-  cd "$APP_DIR"
-  npm run build 2>&1 | tail -3
-  success "Build complete"
-}
+# ─── Phase 6: Launch (Dev Mode — no build needed) ─────────────────────────────
 
 install_service() {
+  local NODE_PATH
   NODE_PATH=$(which node)
-  SERVER_JS="$APP_DIR/.next/server/server.js"
-  LOG_DIR="$APP_DIR/logs"
+  local NODE_DIR
+  NODE_DIR=$(dirname "$NODE_PATH")
+  local LOG_DIR="$APP_DIR/logs"
   mkdir -p "$LOG_DIR"
 
+  log "Installing auto-start service..."
+
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    log "Installing launchd service (macOS)..."
-
-    sed \
-      -e "s|{{NODE_PATH}}|${NODE_PATH}|g" \
-      -e "s|{{SERVER_JS}}|${SERVER_JS}|g" \
-      -e "s|{{APP_DIR}}|${APP_DIR}|g" \
-      -e "s|{{PORT}}|${PORT}|g" \
-      -e "s|{{LOG_DIR}}|${LOG_DIR}|g" \
-      -e "s|{{PLIST_LABEL}}|${PLIST_LABEL}|g" \
-      "$INSTALLER_DIR/com.unified-mc.plist.tmpl" > "$PLIST_FILE"
-
+    # Stop any existing service
     launchctl unload "$PLIST_FILE" 2>/dev/null || true
+
+    cat > "$PLIST_FILE" << PEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${PLIST_LABEL}</string>
+    <key>WorkingDirectory</key>
+    <string>${APP_DIR}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${NODE_PATH}</string>
+        <string>node_modules/next/dist/bin/next</string>
+        <string>dev</string>
+        <string>--hostname</string>
+        <string>127.0.0.1</string>
+        <string>--port</string>
+        <string>${PORT}</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>${NODE_DIR}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>NODE_ENV</key>
+        <string>development</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>${LOG_DIR}/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>${LOG_DIR}/stderr.log</string>
+</dict>
+</plist>
+PEOF
+
     launchctl load "$PLIST_FILE"
-
-    success "LaunchAgent installed (auto-starts on boot)"
-
-  elif [[ "$OSTYPE" == "linux"* ]]; then
-    log "Installing systemd service (Linux)..."
-
-    SYSTEMD_FILE="$HOME/.config/systemd/user/unified-mc.service"
-    mkdir -p "$(dirname "$SYSTEMD_FILE")"
-
-    cat > "$SYSTEMD_FILE" <<SEOF
-[Unit]
-Description=Unified Mission Control
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=$APP_DIR
-Environment=PORT=$PORT
-Environment=NODE_ENV=production
-ExecStart=$NODE_PATH $SERVER_JS
-Restart=always
-RestartSec=10
-StandardOutput=append:$LOG_DIR/stdout.log
-StandardError=append:$LOG_DIR/stderr.log
-
-[Install]
-WantedBy=default.target
-SEOF
-
-    systemctl --user daemon-reload
-    systemctl --user enable unified-mc
-    systemctl --user start unified-mc
-
-    success "Systemd user service installed (auto-starts on login)"
-  else
-    warn "Unknown OS. Start manually: cd $APP_DIR && PORT=$PORT npm start"
+    success "Service installed (auto-starts on boot, auto-restarts on crash)"
   fi
 }
 
 start_app() {
-  log "Starting application..."
+  log "Starting Mission Control..."
 
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    launchctl start "$PLIST_LABEL" 2>/dev/null || true
-  elif [[ "$OSTYPE" == "linux"* ]]; then
-    systemctl --user start unified-mc 2>/dev/null || true
-  fi
+  launchctl start "$PLIST_LABEL" 2>/dev/null || true
 
-  log "Waiting for server..."
-  for i in {1..30}; do
-    if curl -s "http://localhost:$PORT" > /dev/null 2>&1; then
-      success "Server running at http://localhost:$PORT"
+  # Wait for it to come up
+  local i
+  for i in $(seq 1 30); do
+    if curl -s -o /dev/null "http://localhost:$PORT" 2>/dev/null; then
+      success "Running at http://localhost:$PORT"
+      # Open browser
+      open "http://localhost:$PORT" 2>/dev/null || true
       return 0
     fi
     sleep 1
   done
 
-  warn "Server didn't respond in 30s. It may still be starting."
-  warn "Check manually: curl http://localhost:$PORT"
+  warn "Still starting up. Give it 30 more seconds, then open http://localhost:$PORT"
 }
 
-# ─── Final Summary ────────────────────────────────────────────────────────────
+# ─── Phase 7: Antigravity Self-Healer ─────────────────────────────────────────
 
 setup_antigravity() {
-  log "Setting up Antigravity self-healer..."
-
-  ANTIGRAVITY_SRC="$INSTALLER_DIR/lib/antigravity-standalone.sh"
-  ANTIGRAVITY_DST="$HOME/.openclaw/antigravity/antigravity.sh"
+  local ANTIGRAVITY_SRC="$INSTALLER_DIR/lib/antigravity-standalone.sh"
+  local ANTIGRAVITY_DST="$HOME/.openclaw/antigravity/antigravity.sh"
 
   if [[ ! -f "$ANTIGRAVITY_SRC" ]]; then
-    warn "Antigravity script not found in installer bundle. Skipping."
     return 0
   fi
 
-  # Install the standalone health checker
+  log "Setting up self-healer..."
   mkdir -p "$(dirname "$ANTIGRAVITY_DST")"
   cp "$ANTIGRAVITY_SRC" "$ANTIGRAVITY_DST"
   chmod +x "$ANTIGRAVITY_DST"
-  success "Antigravity installed at $ANTIGRAVITY_DST"
 
   # Run initial health check
-  log "Running initial health check..."
-  bash "$ANTIGRAVITY_DST" health || true
+  bash "$ANTIGRAVITY_DST" health 2>/dev/null || true
 
-  # Install launchd timer (every 30 min)
+  # Install hourly launchd timer
   if [[ "$OSTYPE" == "darwin"* ]]; then
     local AG_PLIST="$HOME/Library/LaunchAgents/com.o7.antigravity.plist"
-    # Read Gemini key if saved during onboarding
-    local AG_ENV="$HOME/.openclaw/antigravity/.env"
     local AG_GEMINI_KEY=""
-    if [[ -f "$AG_ENV" ]]; then
-      AG_GEMINI_KEY=$(grep "^GEMINI_API_KEY=" "$AG_ENV" 2>/dev/null | cut -d= -f2-)
+    if [[ -f "$HOME/.openclaw/antigravity/.env" ]]; then
+      AG_GEMINI_KEY=$(grep "^GEMINI_API_KEY=" "$HOME/.openclaw/antigravity/.env" 2>/dev/null | cut -d= -f2- || true)
     fi
 
     cat > "$AG_PLIST" << AGEOF
@@ -297,25 +304,25 @@ setup_antigravity() {
 </plist>
 AGEOF
     launchctl unload "$AG_PLIST" 2>/dev/null || true
-    launchctl load "$AG_PLIST" 2>/dev/null
-    success "Antigravity auto-healer: runs every hour"
+    launchctl load "$AG_PLIST" 2>/dev/null || true
+    success "Antigravity self-healer (runs every hour)"
   fi
 }
+
+# ─── Summary ───────────────────────────────────────────────────────────────────
 
 print_summary() {
   echo ""
   echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo -e "${BOLD}${GREEN}  ✅  Installation Complete!${NC}"
+  echo -e "${BOLD}${GREEN}  ✅  You're all set!${NC}"
   echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo ""
-  echo -e "   ${BOLD}🌐 Open:${NC}      http://localhost:$PORT"
-  echo -e "   ${BOLD}📁 App:${NC}       $APP_DIR"
-  echo -e "   ${BOLD}⚙️  Config:${NC}    ~/.openclaw/openclaw.json"
-  echo -e "   ${BOLD}🛡️  Healer:${NC}   Antigravity (auto-checks every 30 min)"
+  echo -e "   ${BOLD}🌐 Dashboard:${NC}   http://localhost:${PORT}"
+  echo -e "   ${BOLD}🛡️  Self-healer:${NC} Antigravity (checks every hour)"
   echo ""
-  echo -e "   ${DIM}View logs:  tail -f $APP_DIR/logs/stderr.log${NC}"
-  echo -e "   ${DIM}Restart:    launchctl stop $PLIST_LABEL && launchctl start $PLIST_LABEL${NC}"
-  echo -e "   ${DIM}Health:     bash ~/.openclaw/antigravity/antigravity.sh health${NC}"
+  echo -e "   ${DIM}Logs:     tail -f ${APP_DIR}/logs/stderr.log${NC}"
+  echo -e "   ${DIM}Restart:  launchctl stop ${PLIST_LABEL} && launchctl start ${PLIST_LABEL}${NC}"
+  echo -e "   ${DIM}Health:   bash ~/.openclaw/antigravity/antigravity.sh health${NC}"
   echo ""
   echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo ""
@@ -327,9 +334,8 @@ main() {
   check_prereqs
   setup_openclaw
   setup_repo
-  run_onboarding
   install_deps
-  build_app
+  run_onboarding
   install_service
   start_app
   setup_antigravity
