@@ -399,138 +399,275 @@ async function phasePersonalInfo() {
 
 // ─── Phase 2: AI Provider Setup ──────────────────────────────────────────────
 
-async function phaseAISetup() {
-  section('🤖', 'Let\'s connect your AI models.');
-  console.log(`   ${c.bold}No API keys needed for Claude or ChatGPT${c.reset} — just sign in.\n`);
-  console.log(`   We'll walk you through each one. You need ${c.bold}at least one${c.reset} to continue.\n`);
+// ─── Direct Auth Config Writing ───────────────────────────────────────────────
+// Writes directly to ~/.openclaw/openclaw.json and ~/.openclaw/auth-profiles.json
+// No shelling out to `openclaw onboard`. Clean, fast, non-tech friendly.
 
-  const results = { claude: null, openai: null, gemini: null, kimi: null };
+const AUTH_PROFILES_PATH = join(OPENCLAW_DIR, 'auth-profiles.json');
 
-  // ── Claude (Anthropic) — setup-token/OAuth ──────────────────────────────
-  console.log(`   ${c.cyan}1.${c.reset} ${c.bold}Claude (Anthropic)${c.reset} — Best quality, recommended`);
-  info('   Signs in through your browser. No API key copy-paste.');
-  console.log('');
+function readJsonSafe(path) {
+  try { return JSON.parse(readFileSync(path, 'utf-8')); } catch { return {}; }
+}
 
-  if (await askYesNo('   Set up Claude? (opens browser)', false)) {
-    console.log(`\n   ${c.dim}Launching browser for Anthropic authentication...${c.reset}`);
-    info('   Sign in with your Anthropic account when the browser opens.');
-    info('   If you don\'t have an account, create one at console.anthropic.com');
+function writeAuthProfile(profileId, provider, token, opts = {}) {
+  // 1. Write to auth-profiles.json (actual token store)
+  const profiles = readJsonSafe(AUTH_PROFILES_PATH);
+  profiles[profileId] = { provider, token, ...opts };
+  if (!DRY_RUN) {
+    mkdirSync(dirname(AUTH_PROFILES_PATH), { recursive: true });
+    writeFileSync(AUTH_PROFILES_PATH, JSON.stringify(profiles, null, 2) + '\n');
+  }
+
+  // 2. Write to openclaw.json auth.profiles (metadata)
+  const configPath = join(OPENCLAW_DIR, 'openclaw.json');
+  const config = readJsonSafe(configPath);
+  if (!config.auth) config.auth = {};
+  if (!config.auth.profiles) config.auth.profiles = {};
+  if (!config.auth.order) config.auth.order = {};
+
+  const mode = opts.baseUrl ? 'token' : (token.startsWith('sk-') ? 'token' : 'api_key');
+  config.auth.profiles[profileId] = { provider, mode };
+
+  // Add to order
+  if (!config.auth.order[provider]) config.auth.order[provider] = [];
+  if (!config.auth.order[provider].includes(profileId)) {
+    config.auth.order[provider].push(profileId);
+  }
+
+  if (!DRY_RUN) {
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+  }
+}
+
+async function testApiKey(provider, token, baseUrl) {
+  const https = await import('https');
+  const http = await import('http');
+
+  return new Promise((resolve) => {
+    let url, options, body;
+
+    if (provider === 'anthropic') {
+      url = new URL('https://api.anthropic.com/v1/messages');
+      body = JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 5, messages: [{ role: 'user', content: 'Say OK' }] });
+      options = {
+        method: 'POST',
+        headers: {
+          'x-api-key': token,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(body),
+        },
+      };
+    } else if (provider === 'google') {
+      url = new URL(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${token}`);
+      body = JSON.stringify({ contents: [{ parts: [{ text: 'Say OK' }] }] });
+      options = { method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) } };
+    } else if (provider === 'ollama' || baseUrl) {
+      const base = baseUrl || 'https://ollama.com/v1';
+      url = new URL(`${base}/chat/completions`);
+      body = JSON.stringify({ model: 'kimi-k2.5:cloud', messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 5 });
+      options = {
+        method: 'POST',
+        headers: { 'authorization': `Bearer ${token}`, 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) },
+      };
+    } else if (provider === 'openai') {
+      url = new URL('https://api.openai.com/v1/chat/completions');
+      body = JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 5 });
+      options = {
+        method: 'POST',
+        headers: { 'authorization': `Bearer ${token}`, 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) },
+      };
+    } else {
+      resolve({ ok: false, error: 'unknown provider' });
+      return;
+    }
+
+    const proto = url.protocol === 'https:' ? https : http;
+    const req = proto.request(url, options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve({ ok: true });
+        } else if (res.statusCode === 401 || res.statusCode === 403) {
+          resolve({ ok: false, error: 'invalid_key', detail: 'Your key was rejected. Double-check you copied it correctly.' });
+        } else if (res.statusCode === 429) {
+          resolve({ ok: true, warn: 'Rate limited, but your key is valid!' });
+        } else {
+          let msg = '';
+          try { msg = JSON.parse(data).error?.message || data.slice(0, 100); } catch { msg = data.slice(0, 100); }
+          resolve({ ok: false, error: 'api_error', detail: `Status ${res.statusCode}: ${msg}` });
+        }
+      });
+    });
+    req.on('error', (e) => {
+      if (e.code === 'ENOTFOUND' || e.code === 'ECONNREFUSED') {
+        resolve({ ok: false, error: 'network', detail: 'Can\'t reach the API. Check your internet connection.' });
+      } else {
+        resolve({ ok: false, error: 'network', detail: e.message });
+      }
+    });
+    req.setTimeout(15000, () => { req.destroy(); resolve({ ok: false, error: 'timeout', detail: 'Request timed out after 15s.' }); });
+    req.write(body);
+    req.end();
+  });
+}
+
+async function setupProviderWithRetry(name, provider, promptText, urlText, keyPrefix, opts = {}) {
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`   ${c.bold}How to get your key:${c.reset}`);
+    console.log(`   ${c.cyan}→ ${urlText}${c.reset}`);
+    if (keyPrefix) info(`   Your key should start with "${keyPrefix}..."`);
     console.log('');
 
-    try {
-      const { execSync } = await import('child_process');
-      execSync('openclaw onboard --auth-choice setup-token', { stdio: 'inherit', timeout: 120000 });
+    const key = await askSecret(`   Paste your ${name} key`);
+    if (!key) {
+      if (attempt === 1) { info('   No key entered. Skipping.'); return null; }
+      warn('   No key entered.');
+      continue;
+    }
+
+    if (keyPrefix && !key.startsWith(keyPrefix)) {
+      warn(`   That doesn't look right — expected it to start with "${keyPrefix}".`);
+      if (attempt < maxRetries) {
+        info('   Let\'s try again. Make sure you copy the full key.');
+        console.log('');
+        continue;
+      }
+    }
+
+    info('   Testing your key...');
+    const result = await testApiKey(provider, key, opts.baseUrl);
+
+    if (result.ok) {
+      if (result.warn) warn(`   ${result.warn}`);
+      return key;
+    }
+
+    if (result.error === 'invalid_key') {
+      error(`   ${result.detail}`);
+      if (attempt < maxRetries) {
+        info(`   Let's try again (attempt ${attempt + 1}/${maxRetries}).`);
+        console.log('');
+      } else {
+        error(`   Failed after ${maxRetries} attempts. You can add it later.`);
+      }
+    } else if (result.error === 'network') {
+      error(`   ${result.detail}`);
+      if (attempt < maxRetries) info('   Check your connection and try again.');
+      else error('   Skipping due to network issues.');
+      return null; // Don't retry network errors
+    } else {
+      warn(`   ${result.detail}`);
+      // Unknown error, save the key anyway — might work
+      return key;
+    }
+  }
+  return null;
+}
+
+async function phaseAISetup() {
+  section('🤖', 'Let\'s connect your AI models.');
+  console.log(`   You need ${c.bold}at least one${c.reset} to continue.\n`);
+  console.log(`   We'll test each key right away so you know it works.\n`);
+
+  const results = {};
+
+  // ── 1. Claude (Anthropic) ───────────────────────────────────────────────
+  console.log(`   ${c.cyan}1.${c.reset} ${c.bold}Claude (Anthropic)${c.reset} — Best quality, recommended\n`);
+
+  if (await askYesNo('   Set up Claude?', false)) {
+    const key = await setupProviderWithRetry(
+      'Claude', 'anthropic',
+      'Get your key from the Anthropic Console:',
+      'https://console.anthropic.com/settings/keys',
+      'sk-ant-'
+    );
+    if (key) {
+      writeAuthProfile('anthropic:default', 'anthropic', key);
       results.claude = 'ok';
-      success('Claude authenticated!');
-    } catch (e) {
-      warn('Claude setup-token failed. Trying OAuth flow...');
-      try {
-        const { execSync } = await import('child_process');
-        execSync('openclaw onboard --auth-choice oauth', { stdio: 'inherit', timeout: 120000 });
-        results.claude = 'ok';
-        success('Claude authenticated via OAuth!');
-      } catch (e2) {
-        error('Claude authentication failed. You can set it up later: openclaw configure');
-        results.claude = 'failed';
-      }
+      success('Claude configured and verified! ✨');
+    } else {
+      results.claude = 'skipped';
     }
   } else {
-    info('   Skipped. Set up later with: openclaw configure');
+    info('   Skipped.');
+    results.claude = 'skipped';
   }
   console.log('');
 
-  // ── ChatGPT/Codex (OpenAI) — OAuth ─────────────────────────────────────
-  console.log(`   ${c.cyan}2.${c.reset} ${c.bold}ChatGPT / Codex (OpenAI)${c.reset} — OAuth sign-in`);
-  info('   Signs in through your browser. Just log into your OpenAI account.');
-  console.log('');
+  // ── 2. ChatGPT (OpenAI) ────────────────────────────────────────────────
+  console.log(`   ${c.cyan}2.${c.reset} ${c.bold}ChatGPT (OpenAI)${c.reset} — GPT-4o, good alternative\n`);
 
-  if (await askYesNo('   Set up ChatGPT/Codex? (opens browser)', false)) {
-    console.log(`\n   ${c.dim}Launching browser for OpenAI authentication...${c.reset}\n`);
-
-    try {
-      const { execSync } = await import('child_process');
-      execSync('openclaw onboard --auth-choice openai-codex', { stdio: 'inherit', timeout: 120000 });
+  if (await askYesNo('   Set up ChatGPT?', false)) {
+    const key = await setupProviderWithRetry(
+      'OpenAI', 'openai',
+      'Get your key from the OpenAI dashboard:',
+      'https://platform.openai.com/api-keys',
+      'sk-'
+    );
+    if (key) {
+      writeAuthProfile('openai:default', 'openai', key);
       results.openai = 'ok';
-      success('ChatGPT/Codex authenticated!');
-    } catch (e) {
-      error('OpenAI authentication failed. Set up later: openclaw configure');
-      results.openai = 'failed';
+      success('ChatGPT configured and verified! ✨');
+    } else {
+      results.openai = 'skipped';
     }
   } else {
     info('   Skipped.');
+    results.openai = 'skipped';
   }
   console.log('');
 
-  // ── Gemini (Google) — CLI OAuth ─────────────────────────────────────────
-  console.log(`   ${c.cyan}3.${c.reset} ${c.bold}Gemini (Google)${c.reset} — Free, 1M+ context`);
-  info('   Signs in with your Google account. Free tier, no credit card.');
-  console.log('');
+  // ── 3. Gemini (Google) ─────────────────────────────────────────────────
+  console.log(`   ${c.cyan}3.${c.reset} ${c.bold}Gemini (Google)${c.reset} — Free tier, 1M+ context\n`);
 
-  if (await askYesNo('   Set up Gemini? (opens browser)', false)) {
-    console.log(`\n   ${c.dim}Launching browser for Google authentication...${c.reset}\n`);
-
-    try {
-      const { execSync } = await import('child_process');
-      execSync('openclaw onboard --auth-choice google-gemini-cli', { stdio: 'inherit', timeout: 120000 });
+  if (await askYesNo('   Set up Gemini?', false)) {
+    const key = await setupProviderWithRetry(
+      'Gemini', 'google',
+      'Get a free key from Google AI Studio:',
+      'https://aistudio.google.com/apikey',
+      'AIza'
+    );
+    if (key) {
+      writeAuthProfile('gemini:default', 'google', key);
       results.gemini = 'ok';
-      success('Gemini authenticated!');
-    } catch (e) {
-      warn('Gemini OAuth failed. Let\'s try with an API key instead.');
-      console.log(`\n   ${c.bold}Get a free API key:${c.reset}`);
-      console.log(`   ${c.cyan}→ https://aistudio.google.com/apikey${c.reset}`);
-      info('   Sign in with Google, click "Create API Key", copy it.\n');
-
-      const geminiKey = await askSecret('   Paste your Gemini API key (or Enter to skip)');
-      if (geminiKey) {
-        try {
-          const { execSync } = await import('child_process');
-          execSync(`openclaw onboard --auth-choice gemini-api-key --gemini-api-key "${geminiKey}"`, { stdio: 'inherit', timeout: 30000 });
-          results.gemini = 'ok';
-          success('Gemini configured with API key!');
-        } catch (e2) {
-          error('Gemini setup failed.');
-          results.gemini = 'failed';
-        }
-      }
+      success('Gemini configured and verified! ✨');
+    } else {
+      results.gemini = 'skipped';
     }
   } else {
     info('   Skipped.');
+    results.gemini = 'skipped';
   }
   console.log('');
 
-  // ── Kimi K2.5 (Ollama Cloud) — API Key ─────────────────────────────────
-  console.log(`   ${c.cyan}4.${c.reset} ${c.bold}Kimi K2.5 (Ollama Cloud)${c.reset} — Design AI`);
-  info('   Kimi is our creative/design model. Runs via Ollama Cloud.');
-  info('   This one does need an API key from ollama.com.');
-  console.log('');
-  console.log(`   ${c.bold}How to get your key:${c.reset}`);
-  console.log(`   ${c.cyan}→ https://ollama.com/settings/keys${c.reset}`);
-  info('   1. Sign in or create an account at ollama.com');
-  info('   2. Go to Settings → API Keys');
-  info('   3. Click "Create new key", copy it');
-  console.log('');
+  // ── 4. Kimi K2.5 (Ollama Cloud) ────────────────────────────────────────
+  console.log(`   ${c.cyan}4.${c.reset} ${c.bold}Kimi K2.5 (Ollama Cloud)${c.reset} — Design & creative AI\n`);
 
   if (await askYesNo('   Set up Kimi K2.5?')) {
-    const ollamaKey = await askSecret('   Paste your Ollama API key');
-    if (ollamaKey) {
-      try {
-        const { execSync } = await import('child_process');
-        execSync(`openclaw onboard --auth-choice custom-api-key --custom-api-key "${ollamaKey}" --custom-base-url "https://ollama.com/v1" --custom-provider-id "ollama" --custom-model-id "kimi-k2.5:cloud" --custom-compatibility openai --token-profile-id "ollama:cloud"`, { stdio: 'inherit', timeout: 30000 });
-        results.kimi = 'ok';
-        success('Kimi K2.5 configured!');
-      } catch (e) {
-        error('Kimi K2.5 setup failed. You can add it manually later.');
-        results.kimi = 'failed';
-      }
+    const key = await setupProviderWithRetry(
+      'Ollama', 'ollama',
+      'Get your key from Ollama:',
+      'https://ollama.com/settings/keys',
+      null,
+      { baseUrl: 'https://ollama.com/v1' }
+    );
+    if (key) {
+      writeAuthProfile('ollama:cloud', 'ollama', key, { baseUrl: 'https://ollama.com/v1' });
+      results.kimi = 'ok';
+      success('Kimi K2.5 configured and verified! ✨');
     } else {
-      warn('No key entered. Skipping Kimi.');
+      results.kimi = 'skipped';
     }
   } else {
     info('   Skipped.');
+    results.kimi = 'skipped';
   }
   console.log('');
 
-  // ── Check at least one model works ──────────────────────────────────────
+  // ── Summary ─────────────────────────────────────────────────────────────
   const working = Object.values(results).filter(v => v === 'ok').length;
   if (working === 0) {
     if (DRY_RUN) {
@@ -538,13 +675,11 @@ async function phaseAISetup() {
       return { anthropicKey: '', openaiKey: '', geminiKey: '', authResults: results };
     }
     error('You need at least one AI model to continue.');
-    error('Re-run the wizard or use: openclaw configure');
+    error('Re-run the wizard to try again.');
     process.exit(1);
   }
 
-  success(`${working} model${working > 1 ? 's' : ''} configured!`);
-
-  // Return empty keys since auth is handled by openclaw onboard now
+  success(`${working} model${working > 1 ? 's' : ''} ready to go!`);
   return { anthropicKey: '', openaiKey: '', geminiKey: '', authResults: results };
 }
 
