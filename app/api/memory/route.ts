@@ -1,28 +1,119 @@
 import os from 'os';
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 
 const MEMORY_DIR = path.join(os.homedir(), '.openclaw', 'workspace', 'memory');
 
+interface TreeNode {
+  name: string;
+  path: string; // relative to MEMORY_DIR
+  type: 'file' | 'dir';
+  sizeKB?: number;
+  date?: string;
+  children?: TreeNode[];
+}
+
+async function buildTree(dir: string, relativePath = ''): Promise<TreeNode[]> {
+  const nodes: TreeNode[] = [];
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const fullPath = path.join(dir, entry.name);
+      const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        const children = await buildTree(fullPath, relPath);
+        nodes.push({ name: entry.name, path: relPath, type: 'dir', children });
+      } else {
+        const stat = await fs.stat(fullPath);
+        nodes.push({
+          name: entry.name,
+          path: relPath,
+          type: 'file',
+          sizeKB: Math.round((stat.size / 1024) * 10) / 10,
+          date: stat.mtime.toISOString(),
+        });
+      }
+    }
+  } catch {}
+  // Sort: dirs first, then by name
+  nodes.sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+  return nodes;
+}
+
+async function searchFiles(query: string): Promise<{ path: string; line: string; lineNum: number }[]> {
+  const results: { path: string; line: string; lineNum: number }[] = [];
+  const q = query.toLowerCase();
+
+  async function walk(dir: string, relPath: string) {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const full = path.join(dir, entry.name);
+      const rel = relPath ? `${relPath}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        await walk(full, rel);
+      } else {
+        try {
+          const content = await fs.readFile(full, 'utf-8');
+          const lines = content.split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].toLowerCase().includes(q)) {
+              results.push({ path: rel, line: lines[i].trim().slice(0, 200), lineNum: i + 1 });
+              if (results.length >= 50) return;
+            }
+          }
+        } catch {}
+      }
+      if (results.length >= 50) return;
+    }
+  }
+
+  await walk(MEMORY_DIR, '');
+  return results;
+}
+
 export async function GET(req: NextRequest) {
   const file = req.nextUrl.searchParams.get('file');
+  const search = req.nextUrl.searchParams.get('search');
+  const mode = req.nextUrl.searchParams.get('mode');
 
-  // Single file mode: return full content
+  // Single file mode: return full content (supports subdirectory paths)
   if (file) {
-    const safe = path.basename(file);
-    if (!safe.endsWith('.md')) {
-      return NextResponse.json({ error: 'Invalid file' }, { status: 400 });
+    // Sanitize: prevent path traversal
+    const normalized = path.normalize(file).replace(/^(\.\.[/\\])+/, '');
+    const fullPath = path.join(MEMORY_DIR, normalized);
+    if (!fullPath.startsWith(MEMORY_DIR)) {
+      return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
     try {
-      const content = await fs.readFile(path.join(MEMORY_DIR, safe), 'utf-8');
-      return NextResponse.json({ filename: safe, content });
+      const content = await fs.readFile(fullPath, 'utf-8');
+      return NextResponse.json({ filename: path.basename(normalized), path: normalized, content });
     } catch {
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
   }
 
-  // List mode: return all memory files with metadata
+  // Search mode
+  if (search) {
+    const results = await searchFiles(search);
+    return NextResponse.json({ results });
+  }
+
+  // Tree mode
+  if (mode === 'tree') {
+    const tree = await buildTree(MEMORY_DIR);
+    return NextResponse.json({ tree });
+  }
+
+  // Default list mode (backward compatible)
   try {
     const entries = await fs.readdir(MEMORY_DIR);
     const mdFiles = entries.filter((f) => f.endsWith('.md'));
@@ -44,12 +135,21 @@ export async function GET(req: NextRequest) {
 
     files.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // Separate MEMORY.md (long-term) from daily files
     const longTerm = files.find((f) => f.filename === 'MEMORY.md') || null;
     const daily = files.filter((f) => f.filename !== 'MEMORY.md');
 
-    return NextResponse.json({ longTerm, daily });
+    // Also get subdirectories
+    const subdirs: string[] = [];
+    for (const entry of entries) {
+      const full = path.join(MEMORY_DIR, entry);
+      try {
+        const stat = await fs.stat(full);
+        if (stat.isDirectory() && !entry.startsWith('.')) subdirs.push(entry);
+      } catch {}
+    }
+
+    return NextResponse.json({ longTerm, daily, subdirs });
   } catch {
-    return NextResponse.json({ longTerm: null, daily: [] });
+    return NextResponse.json({ longTerm: null, daily: [], subdirs: [] });
   }
 }

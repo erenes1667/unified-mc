@@ -45,3 +45,5 @@ next-env.d.ts
 
 # User data
 /data/*.json
+logs/
+data/

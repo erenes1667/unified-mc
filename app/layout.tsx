@@ -3,6 +3,7 @@ import './globals.css';
 import Starfield from '@/components/starfield';
 import Sidebar from '@/components/sidebar';
 import Topbar from '@/components/topbar';
+import AppWrapper from '@/components/app-wrapper';
 import { loadRole, NAV_ITEMS } from '@/lib/roles';
 
 export const metadata: Metadata = {
@@ -39,22 +40,24 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en">
       <body>
         <Starfield />
-        <div className="app-shell">
-          <Sidebar allowedPanels={role.panels} role={role.label} />
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <Topbar />
-            <main
-              style={{
-                flex: 1,
-                overflow: 'auto',
-                padding: 24,
-                position: 'relative',
-              }}
-            >
-              {children}
-            </main>
+        <AppWrapper>
+          <div className="app-shell">
+            <Sidebar allowedPanels={role.panels} role={role.label} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <Topbar />
+              <main
+                style={{
+                  flex: 1,
+                  overflow: 'auto',
+                  padding: 24,
+                  position: 'relative',
+                }}
+              >
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
+        </AppWrapper>
       </body>
     </html>
   );
