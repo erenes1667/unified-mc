@@ -247,8 +247,18 @@ function buildOpenclawJson(config) {
       apiKey: config.anthropicKey,
       models: [
         {
-          id: 'claude-sonnet-4-20250514',
-          name: 'Claude Sonnet 4',
+          id: 'claude-opus-4-6',
+          name: 'Claude Opus 4.6',
+          api: 'anthropic-messages',
+          reasoning: true,
+          input: ['text', 'image'],
+          cost: { input: 5, output: 25 },
+          contextWindow: 200000,
+          maxTokens: 128000,
+        },
+        {
+          id: 'claude-sonnet-4-6',
+          name: 'Claude Sonnet 4.6',
           api: 'anthropic-messages',
           reasoning: true,
           input: ['text', 'image'],
@@ -262,7 +272,7 @@ function buildOpenclawJson(config) {
           api: 'anthropic-messages',
           reasoning: false,
           input: ['text', 'image'],
-          cost: { input: 0.8, output: 4 },
+          cost: { input: 1, output: 5 },
           contextWindow: 200000,
           maxTokens: 64000,
         },
@@ -337,7 +347,7 @@ function buildOpenclawJson(config) {
   }
 
   // Determine default model
-  let defaultModel = 'anthropic/claude-sonnet-4-20250514';
+  let defaultModel = 'anthropic/claude-sonnet-4-6';
   if (!config.anthropicKey && config.openaiKey) defaultModel = 'openai/gpt-4o';
   if (!config.anthropicKey && !config.openaiKey && config.ollamaKey) defaultModel = 'ollama/kimi-k2.5:cloud';
   if (!config.anthropicKey && !config.openaiKey && !config.ollamaKey && config.geminiKey) defaultModel = 'google/gemini-2.0-flash';
