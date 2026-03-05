@@ -12,19 +12,28 @@ interface MemoryFile {
   children?: MemoryFile[]
 }
 
+interface SearchResultItem {
+  path: string
+  name: string
+  matches: number
+  snippets?: string[]
+}
+
+type ViewMode = 'preview' | 'raw' | 'diff'
+
 export function MemoryBrowserPanel() {
-  const { 
-    memoryFiles, 
-    selectedMemoryFile, 
+  const {
+    memoryFiles,
+    selectedMemoryFile,
     memoryContent,
-    setMemoryFiles, 
-    setSelectedMemoryFile, 
-    setMemoryContent 
+    setMemoryFiles,
+    setSelectedMemoryFile,
+    setMemoryContent
   } = useMissionControl()
 
   const [isLoading, setIsLoading] = useState(false)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -33,6 +42,10 @@ export function MemoryBrowserPanel() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'daily' | 'knowledge' | 'all'>('all')
+  const [viewMode, setViewMode] = useState<ViewMode>('preview')
+  const [previousContent, setPreviousContent] = useState<string | null>(null)
+  const [treeFilter, setTreeFilter] = useState('')
+  const [recentFiles, setRecentFiles] = useState<string[]>([])
 
   const loadFileTree = useCallback(async () => {
     setIsLoading(true)
@@ -71,12 +84,22 @@ export function MemoryBrowserPanel() {
   const loadFileContent = async (filePath: string) => {
     setIsLoading(true)
     try {
+      // Store previous content for diff view
+      if (memoryContent && selectedMemoryFile) {
+        setPreviousContent(memoryContent)
+      }
+
       const response = await fetch(`/api/memory?action=content&path=${encodeURIComponent(filePath)}`)
       const data = await response.json()
-      
+
       if (data.content !== undefined) {
         setSelectedMemoryFile(filePath)
         setMemoryContent(data.content)
+        // Track recent files
+        setRecentFiles(prev => {
+          const filtered = prev.filter(f => f !== filePath)
+          return [filePath, ...filtered].slice(0, 10)
+        })
       } else {
         alert(data.error || 'Failed to load file content')
       }
@@ -86,6 +109,40 @@ export function MemoryBrowserPanel() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const expandAllFolders = () => {
+    const allPaths = new Set<string>()
+    const collectPaths = (files: MemoryFile[]) => {
+      for (const file of files) {
+        if (file.type === 'directory') {
+          allPaths.add(file.path)
+          if (file.children) collectPaths(file.children)
+        }
+      }
+    }
+    collectPaths(memoryFiles)
+    setExpandedFolders(allPaths)
+  }
+
+  const collapseAllFolders = () => {
+    setExpandedFolders(new Set())
+  }
+
+  const filterTree = (files: MemoryFile[], query: string): MemoryFile[] => {
+    if (!query) return files
+    const lower = query.toLowerCase()
+    return files.reduce<MemoryFile[]>((acc, file) => {
+      if (file.type === 'file') {
+        if (file.name.toLowerCase().includes(lower)) acc.push(file)
+      } else {
+        const filteredChildren = filterTree(file.children || [], query)
+        if (filteredChildren.length > 0 || file.name.toLowerCase().includes(lower)) {
+          acc.push({ ...file, children: filteredChildren })
+        }
+      }
+      return acc
+    }, [])
   }
 
   const searchFiles = async () => {
@@ -442,24 +499,71 @@ export function MemoryBrowserPanel() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* File Tree */}
         <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Memory Structure</h2>
-          
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Memory Structure</h2>
+            <div className="flex items-center gap-1">
+              <button onClick={expandAllFolders} className="px-2 py-1 text-2xs text-muted-foreground hover:text-foreground bg-secondary rounded transition-smooth" title="Expand all">
+                Expand
+              </button>
+              <button onClick={collapseAllFolders} className="px-2 py-1 text-2xs text-muted-foreground hover:text-foreground bg-secondary rounded transition-smooth" title="Collapse all">
+                Collapse
+              </button>
+            </div>
+          </div>
+
+          {/* Tree filter */}
+          <input
+            type="text"
+            value={treeFilter}
+            onChange={(e) => setTreeFilter(e.target.value)}
+            placeholder="Filter files..."
+            className="w-full mb-3 px-2 py-1.5 text-xs border border-border rounded bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+          />
+
+          {/* Recent files */}
+          {recentFiles.length > 0 && !treeFilter && (
+            <div className="mb-3 pb-3 border-b border-border/50">
+              <span className="text-2xs text-muted-foreground/60 font-semibold">RECENT</span>
+              <div className="mt-1 space-y-0.5">
+                {recentFiles.slice(0, 5).map(path => {
+                  const name = path.split('/').pop() || path
+                  return (
+                    <div
+                      key={path}
+                      className={`flex items-center gap-1.5 py-0.5 px-1.5 rounded text-xs cursor-pointer hover:bg-secondary transition-smooth ${
+                        selectedMemoryFile === path ? 'bg-primary/15 text-primary' : 'text-muted-foreground'
+                      }`}
+                      onClick={() => loadFileContent(path)}
+                    >
+                      <span className="text-2xs opacity-60">
+                        {name.endsWith('.md') ? 'MD' : name.endsWith('.json') ? 'JS' : 'TX'}
+                      </span>
+                      <span className="truncate">{name}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               <span className="ml-3 text-muted-foreground">Loading...</span>
             </div>
           ) : (
-            <div className="max-h-96 overflow-y-auto text-sm">
-              {getFilteredFiles().length === 0 ? (
-                <div className="text-center text-muted-foreground py-8">
-                  {activeTab === 'all' ? 'No memory files found' : 
-                   activeTab === 'daily' ? 'No daily logs found' : 
-                   'No knowledge files found'}
-                </div>
-              ) : (
-                renderFileTree(getFilteredFiles())
-              )}
+            <div className="max-h-[500px] overflow-y-auto text-sm">
+              {(() => {
+                const files = treeFilter ? filterTree(getFilteredFiles(), treeFilter) : getFilteredFiles()
+                return files.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    {treeFilter ? 'No files match filter' :
+                     activeTab === 'all' ? 'No memory files found' :
+                     activeTab === 'daily' ? 'No daily logs found' :
+                     'No knowledge files found'}
+                  </div>
+                ) : renderFileTree(files)
+              })()}
             </div>
           )}
         </div>
@@ -467,10 +571,35 @@ export function MemoryBrowserPanel() {
         {/* File Content */}
         <div className="lg:col-span-2 bg-card border border-border rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">
-              {selectedMemoryFile || 'File Content'}
-            </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              {selectedMemoryFile && (
+                <nav className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+                  {selectedMemoryFile.split('/').map((part, i, arr) => (
+                    <React.Fragment key={i}>
+                      {i > 0 && <span className="text-muted-foreground/40">/</span>}
+                      <span className={i === arr.length - 1 ? 'text-foreground font-medium' : ''}>{part}</span>
+                    </React.Fragment>
+                  ))}
+                </nav>
+              )}
+              {!selectedMemoryFile && <h2 className="text-lg font-semibold">File Content</h2>}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {selectedMemoryFile && !isEditing && (
+                <div className="flex items-center rounded-md border border-border overflow-hidden">
+                  {(['preview', 'raw', 'diff'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setViewMode(mode)}
+                      className={`px-2 py-1 text-2xs capitalize transition-smooth ${
+                        viewMode === mode ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              )}
               {selectedMemoryFile && (
                 <>
                   {!isEditing ? (
@@ -511,6 +640,7 @@ export function MemoryBrowserPanel() {
                       setMemoryContent('')
                       setIsEditing(false)
                       setEditedContent('')
+                      setPreviousContent(null)
                     }}
                     className="text-muted-foreground hover:text-foreground transition-colors"
                   >
@@ -526,7 +656,7 @@ export function MemoryBrowserPanel() {
               </button>
             </div>
           </div>
-          
+
           <div className="border border-border rounded-lg min-h-96 overflow-auto">
             {isLoading ? (
               <div className="flex items-center justify-center h-32">
@@ -542,6 +672,17 @@ export function MemoryBrowserPanel() {
                     className="w-full min-h-[500px] p-3 bg-surface-1 text-foreground font-mono text-sm border border-border rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-primary/50"
                     placeholder="Edit file content..."
                   />
+                ) : viewMode === 'diff' ? (
+                  <DiffView current={memoryContent} previous={previousContent} fileName={selectedMemoryFile || ''} />
+                ) : viewMode === 'raw' ? (
+                  <div>
+                    <div className="mb-4 text-sm text-muted-foreground">
+                      File: {selectedMemoryFile} | Size: {memoryContent.length} chars
+                    </div>
+                    <pre className="text-sm whitespace-pre-wrap break-words overflow-auto font-mono">
+                      {memoryContent}
+                    </pre>
+                  </div>
                 ) : selectedMemoryFile?.endsWith('.md') ? (
                   <div className="prose prose-invert max-w-none w-full">
                     <div className="mb-4 text-sm text-muted-foreground">
@@ -557,7 +698,7 @@ export function MemoryBrowserPanel() {
                       File: {selectedMemoryFile} | Size: {memoryContent.length} chars
                     </div>
                     <pre className="text-sm overflow-auto whitespace-pre-wrap break-words">
-                      <code>{JSON.stringify(JSON.parse(memoryContent), null, 2)}</code>
+                      <code>{(() => { try { return JSON.stringify(JSON.parse(memoryContent), null, 2) } catch { return memoryContent } })()}</code>
                     </pre>
                   </div>
                 ) : (
@@ -774,6 +915,85 @@ function CreateFileModal({
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Diff View Component
+function DiffView({ current, previous, fileName }: {
+  current: string
+  previous: string | null
+  fileName: string
+}) {
+  if (!previous) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-sm text-muted-foreground">No previous version available for diff</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">Navigate between files to see changes</p>
+      </div>
+    )
+  }
+
+  const currentLines = current.split('\n')
+  const previousLines = previous.split('\n')
+
+  // Simple line-by-line diff
+  const maxLines = Math.max(currentLines.length, previousLines.length)
+  const diffLines: Array<{ type: 'same' | 'add' | 'remove' | 'modify'; lineNum: number; content: string; oldContent?: string }> = []
+
+  for (let i = 0; i < maxLines; i++) {
+    const curr = currentLines[i]
+    const prev = previousLines[i]
+
+    if (curr === undefined && prev !== undefined) {
+      diffLines.push({ type: 'remove', lineNum: i + 1, content: prev })
+    } else if (curr !== undefined && prev === undefined) {
+      diffLines.push({ type: 'add', lineNum: i + 1, content: curr })
+    } else if (curr !== prev) {
+      diffLines.push({ type: 'remove', lineNum: i + 1, content: prev || '' })
+      diffLines.push({ type: 'add', lineNum: i + 1, content: curr || '' })
+    } else {
+      diffLines.push({ type: 'same', lineNum: i + 1, content: curr || '' })
+    }
+  }
+
+  const added = diffLines.filter(l => l.type === 'add').length
+  const removed = diffLines.filter(l => l.type === 'remove').length
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-3 text-xs text-muted-foreground">
+        <span>Comparing: {fileName}</span>
+        <span className="text-green-400">+{added} added</span>
+        <span className="text-red-400">-{removed} removed</span>
+      </div>
+      <div className="font-mono text-xs overflow-auto max-h-[600px]">
+        {diffLines.map((line, i) => (
+          <div
+            key={i}
+            className={`flex ${
+              line.type === 'add' ? 'bg-green-500/10' :
+              line.type === 'remove' ? 'bg-red-500/10' : ''
+            }`}
+          >
+            <span className="w-10 shrink-0 text-right pr-2 text-muted-foreground/50 select-none border-r border-border/30">
+              {line.lineNum}
+            </span>
+            <span className={`w-5 shrink-0 text-center select-none ${
+              line.type === 'add' ? 'text-green-400' :
+              line.type === 'remove' ? 'text-red-400' : 'text-muted-foreground/30'
+            }`}>
+              {line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' '}
+            </span>
+            <span className={`flex-1 px-2 whitespace-pre-wrap break-words ${
+              line.type === 'add' ? 'text-green-300' :
+              line.type === 'remove' ? 'text-red-300 line-through opacity-70' : 'text-foreground/80'
+            }`}>
+              {line.content || ' '}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   )
