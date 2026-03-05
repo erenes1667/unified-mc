@@ -389,7 +389,7 @@ async function phasePersonalInfo() {
   }
 
   const role = await ask('What\'s your role?', 'Team Member');
-  const company = await ask('What company do you work at?', 'My Company');
+  const company = 'Optimum7';
   const timezone = await ask('What\'s your timezone?', 'America/New_York');
 
   success(`Welcome, ${name}!`);
@@ -567,84 +567,75 @@ async function setupProviderWithRetry(name, provider, promptText, urlText, keyPr
   return null;
 }
 
+async function runCliAuth(command, label) {
+  // Runs an openclaw CLI auth command in the user's terminal
+  const { execSync } = await import('child_process');
+  try {
+    execSync(command, { stdio: 'inherit', timeout: 180000 });
+    return true;
+  } catch (e) {
+    error(`${label} login failed. You can retry later with: ${command}`);
+    return false;
+  }
+}
+
 async function phaseAISetup() {
   section('🤖', 'Let\'s connect your AI models.');
   console.log(`   You need ${c.bold}at least one${c.reset} to continue.\n`);
-  console.log(`   We'll test each key right away so you know it works.\n`);
+  console.log(`   Claude and ChatGPT use ${c.bold}browser sign-in${c.reset} — no keys to copy.\n`);
 
   const results = {};
 
-  // ── 1. Claude (Anthropic) ───────────────────────────────────────────────
-  console.log(`   ${c.cyan}1.${c.reset} ${c.bold}Claude (Anthropic)${c.reset} — Best quality, recommended\n`);
+  // ── 1. Claude Max (browser login) ───────────────────────────────────────
+  console.log(`   ${c.cyan}1.${c.reset} ${c.bold}Claude (Anthropic)${c.reset} — Signs in with your Claude Max account\n`);
+  info('   This opens your browser. Just log in with your Anthropic email.');
+  info('   Works with Claude Max, Pro, or Team subscriptions.');
+  console.log('');
 
-  if (await askYesNo('   Set up Claude?', false)) {
-    const key = await setupProviderWithRetry(
-      'Claude', 'anthropic',
-      'Get your key from the Anthropic Console:',
-      'https://console.anthropic.com/settings/keys',
-      'sk-ant-'
-    );
-    if (key) {
-      writeAuthProfile('anthropic:default', 'anthropic', key);
+  if (await askYesNo('   Sign in to Claude?', false)) {
+    console.log(`\n   ${c.dim}Opening browser for Claude sign-in...${c.reset}\n`);
+    if (await runCliAuth('openclaw models auth setup-token --provider anthropic --yes', 'Claude')) {
       results.claude = 'ok';
-      success('Claude configured and verified! ✨');
+      success('Claude signed in! ✨');
     } else {
-      results.claude = 'skipped';
+      results.claude = 'failed';
     }
   } else {
-    info('   Skipped.');
+    info('   Skipped. Sign in later: openclaw models auth setup-token --provider anthropic');
     results.claude = 'skipped';
   }
   console.log('');
 
-  // ── 2. ChatGPT (OpenAI) ────────────────────────────────────────────────
-  console.log(`   ${c.cyan}2.${c.reset} ${c.bold}ChatGPT (OpenAI)${c.reset} — GPT-4o, good alternative\n`);
+  // ── 2. ChatGPT / Codex (browser login) ─────────────────────────────────
+  console.log(`   ${c.cyan}2.${c.reset} ${c.bold}ChatGPT / Codex (OpenAI)${c.reset} — Signs in with your OpenAI account\n`);
+  info('   This opens your browser. Log in with your ChatGPT email.');
+  info('   Works with Plus, Pro, or Team subscriptions.');
+  console.log('');
 
-  if (await askYesNo('   Set up ChatGPT?', false)) {
-    const key = await setupProviderWithRetry(
-      'OpenAI', 'openai',
-      'Get your key from the OpenAI dashboard:',
-      'https://platform.openai.com/api-keys',
-      'sk-'
-    );
-    if (key) {
-      writeAuthProfile('openai:default', 'openai', key);
+  if (await askYesNo('   Sign in to ChatGPT?', false)) {
+    console.log(`\n   ${c.dim}Opening browser for ChatGPT sign-in...${c.reset}\n`);
+    if (await runCliAuth('openclaw models auth login --provider openai-codex --set-default', 'ChatGPT')) {
       results.openai = 'ok';
-      success('ChatGPT configured and verified! ✨');
+      success('ChatGPT signed in! ✨');
     } else {
-      results.openai = 'skipped';
+      results.openai = 'failed';
     }
   } else {
-    info('   Skipped.');
+    info('   Skipped. Sign in later: openclaw models auth login --provider openai-codex');
     results.openai = 'skipped';
   }
   console.log('');
 
-  // ── 3. Gemini (Google) ─────────────────────────────────────────────────
-  console.log(`   ${c.cyan}3.${c.reset} ${c.bold}Gemini (Google)${c.reset} — Free tier, 1M+ context\n`);
-
-  if (await askYesNo('   Set up Gemini?', false)) {
-    const key = await setupProviderWithRetry(
-      'Gemini', 'google',
-      'Get a free key from Google AI Studio:',
-      'https://aistudio.google.com/apikey',
-      'AIza'
-    );
-    if (key) {
-      writeAuthProfile('gemini:default', 'google', key);
-      results.gemini = 'ok';
-      success('Gemini configured and verified! ✨');
-    } else {
-      results.gemini = 'skipped';
-    }
-  } else {
-    info('   Skipped.');
-    results.gemini = 'skipped';
-  }
+  // ── 3. Kimi K2.5 / Ollama Cloud (API key) ──────────────────────────────
+  console.log(`   ${c.cyan}3.${c.reset} ${c.bold}Kimi K2.5 (Ollama Cloud)${c.reset} — Design & creative AI\n`);
+  info('   This one needs an API key from ollama.com.');
   console.log('');
-
-  // ── 4. Kimi K2.5 (Ollama Cloud) ────────────────────────────────────────
-  console.log(`   ${c.cyan}4.${c.reset} ${c.bold}Kimi K2.5 (Ollama Cloud)${c.reset} — Design & creative AI\n`);
+  console.log(`   ${c.bold}How to get your key:${c.reset}`);
+  console.log(`   ${c.cyan}→ https://ollama.com/settings/keys${c.reset}`);
+  info('   1. Go to ollama.com and sign in (or create a free account)');
+  info('   2. Click your profile → Settings → API Keys');
+  info('   3. Click "Create new key" and copy it');
+  console.log('');
 
   if (await askYesNo('   Set up Kimi K2.5?')) {
     const key = await setupProviderWithRetry(
@@ -664,6 +655,45 @@ async function phaseAISetup() {
   } else {
     info('   Skipped.');
     results.kimi = 'skipped';
+  }
+  console.log('');
+
+  // ── 4. Gemini (for Antigravity self-healer) ─────────────────────────────
+  console.log(`   ${c.cyan}4.${c.reset} ${c.bold}Gemini (Google)${c.reset} — Powers the self-healing system\n`);
+  info('   Free API key from Google. Used by Antigravity to auto-fix issues.');
+  info('   Runs once per hour in the background. Costs nothing.');
+  console.log('');
+  console.log(`   ${c.bold}How to get your key:${c.reset}`);
+  console.log(`   ${c.cyan}→ https://aistudio.google.com/apikey${c.reset}`);
+  info('   1. Sign in with any Google account');
+  info('   2. Click "Create API Key"');
+  info('   3. Copy the key (starts with "AIza...")');
+  console.log('');
+
+  if (await askYesNo('   Set up Gemini for self-healing?', false)) {
+    const key = await setupProviderWithRetry(
+      'Gemini', 'google',
+      'Get your free key:',
+      'https://aistudio.google.com/apikey',
+      'AIza'
+    );
+    if (key) {
+      writeAuthProfile('gemini:default', 'google', key);
+      // Also save for Antigravity
+      const envLine = `GEMINI_API_KEY=${key}\n`;
+      const antigravityEnv = join(OPENCLAW_DIR, 'antigravity', '.env');
+      if (!DRY_RUN) {
+        mkdirSync(dirname(antigravityEnv), { recursive: true });
+        writeFileSync(antigravityEnv, envLine);
+      }
+      results.gemini = 'ok';
+      success('Gemini configured! Antigravity self-healer is powered up. 🛡️');
+    } else {
+      results.gemini = 'skipped';
+    }
+  } else {
+    info('   Skipped. Antigravity will work without it (just no AI diagnosis).');
+    results.gemini = 'skipped';
   }
   console.log('');
 

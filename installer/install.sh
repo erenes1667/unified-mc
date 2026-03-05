@@ -258,6 +258,13 @@ setup_antigravity() {
   # Install launchd timer (every 30 min)
   if [[ "$OSTYPE" == "darwin"* ]]; then
     local AG_PLIST="$HOME/Library/LaunchAgents/com.o7.antigravity.plist"
+    # Read Gemini key if saved during onboarding
+    local AG_ENV="$HOME/.openclaw/antigravity/.env"
+    local AG_GEMINI_KEY=""
+    if [[ -f "$AG_ENV" ]]; then
+      AG_GEMINI_KEY=$(grep "^GEMINI_API_KEY=" "$AG_ENV" 2>/dev/null | cut -d= -f2-)
+    fi
+
     cat > "$AG_PLIST" << AGEOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -271,8 +278,15 @@ setup_antigravity() {
         <string>${ANTIGRAVITY_DST}</string>
         <string>health</string>
     </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>GEMINI_API_KEY</key>
+        <string>${AG_GEMINI_KEY}</string>
+    </dict>
     <key>StartInterval</key>
-    <integer>1800</integer>
+    <integer>3600</integer>
     <key>RunAtLoad</key>
     <false/>
     <key>StandardOutPath</key>
@@ -284,7 +298,7 @@ setup_antigravity() {
 AGEOF
     launchctl unload "$AG_PLIST" 2>/dev/null || true
     launchctl load "$AG_PLIST" 2>/dev/null
-    success "Antigravity auto-healer: runs every 30 minutes"
+    success "Antigravity auto-healer: runs every hour"
   fi
 }
 

@@ -196,7 +196,11 @@ check_mission_control() {
 
 diagnose_with_gemini() {
   local error_desc="$1"
+  # Try loading from .env file
   local gemini_key="${GEMINI_API_KEY:-}"
+  if [[ -z "$gemini_key" && -f "${ANTIGRAVITY_DIR}/.env" ]]; then
+    gemini_key=$(grep "^GEMINI_API_KEY=" "${ANTIGRAVITY_DIR}/.env" 2>/dev/null | cut -d= -f2-)
+  fi
   
   if [[ -z "$gemini_key" ]]; then
     info "Gemini API key not set. Skipping AI diagnosis."
@@ -230,7 +234,7 @@ EOF
   
   local response
   response=$(curl -s --max-time 15 \
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${gemini_key}" \
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${gemini_key}" \
     -H "Content-Type: application/json" \
     -d "$payload" 2>/dev/null)
   
