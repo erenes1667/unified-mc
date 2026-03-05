@@ -31,6 +31,8 @@ const navGroups: NavGroup[] = [
     label: 'OBSERVE',
     items: [
       { id: 'activity', label: 'Activity', icon: <ActivityIcon />, priority: true },
+      { id: 'fleet', label: 'Fleet', icon: <FleetIcon />, priority: false },
+      { id: 'cost-analytics', label: 'Cost Analytics', icon: <CostAnalyticsIcon />, priority: false },
       { id: 'logs', label: 'Logs', icon: <LogsIcon />, priority: false },
       { id: 'tokens', label: 'Tokens', icon: <TokensIcon />, priority: false },
       { id: 'agent-costs', label: 'Agent Costs', icon: <AgentCostsIcon />, priority: false },
@@ -46,6 +48,7 @@ const navGroups: NavGroup[] = [
       { id: 'webhooks', label: 'Webhooks', icon: <WebhookIcon />, priority: false },
       { id: 'alerts', label: 'Alerts', icon: <AlertIcon />, priority: false },
       { id: 'github', label: 'GitHub', icon: <GitHubIcon />, priority: false },
+      { id: 'pipeline-builder', label: 'Pipeline Builder', icon: <PipelineBuilderIcon />, priority: false },
     ],
   },
   {
@@ -604,6 +607,42 @@ function SettingsIcon() {
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="8" cy="8" r="2" />
       <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.4 1.4M11.55 11.55l1.4 1.4M3.05 12.95l1.4-1.4M11.55 4.45l1.4-1.4" />
+    </svg>
+  )
+}
+
+function FleetIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="3" width="4" height="4" rx="1" />
+      <rect x="6" y="3" width="4" height="4" rx="1" />
+      <rect x="11" y="3" width="4" height="4" rx="1" />
+      <rect x="3.5" y="9" width="4" height="4" rx="1" />
+      <rect x="8.5" y="9" width="4" height="4" rx="1" />
+      <line x1="3" y1="7" x2="3" y2="9" />
+      <line x1="8" y1="7" x2="5.5" y2="9" />
+      <line x1="13" y1="7" x2="10.5" y2="9" />
+    </svg>
+  )
+}
+
+function CostAnalyticsIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="1,12 5,7 9,9 15,3" />
+      <line x1="1" y1="15" x2="15" y2="15" />
+    </svg>
+  )
+}
+
+function PipelineBuilderIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="1" width="4" height="4" rx="1" />
+      <rect x="6" y="6" width="4" height="4" rx="1" />
+      <rect x="11" y="11" width="4" height="4" rx="1" />
+      <line x1="5" y1="3" x2="8" y2="3" /><line x1="8" y1="3" x2="8" y2="6" />
+      <line x1="10" y1="8" x2="13" y2="8" /><line x1="13" y1="8" x2="13" y2="11" />
     </svg>
   )
 }
