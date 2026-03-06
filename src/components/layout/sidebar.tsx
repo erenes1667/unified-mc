@@ -49,6 +49,12 @@ const ALL_PANELS: PanelDef[] = [
   { id: 'alerts',           label: 'Alerts',            icon: <AlertIcon />,            group: 'automate' },
   { id: 'github',           label: 'GitHub',            icon: <GitHubIcon />,           group: 'automate' },
   { id: 'pipeline-builder', label: 'Pipeline',          icon: <PipelineIcon />,         group: 'automate' },
+  // Dynasty Custom
+  { id: 'usage',            label: 'Usage',             icon: <span>📊</span>,          group: 'observe' },
+  { id: 'radar',            label: 'Radar',             icon: <span>📡</span>,          group: 'observe' },
+  { id: 'directives',       label: 'Directives',        icon: <span>📋</span>,          group: 'core' },
+  { id: 'kde',              label: 'KDE',               icon: <span>⚡</span>,          group: 'observe' },
+  { id: 'approvals',        label: 'Approvals',         icon: <span>✅</span>,          group: 'automate' },
   // Admin
   { id: 'users',            label: 'Users',             icon: <UsersIcon />,            group: 'admin' },
   { id: 'audit',            label: 'Audit',             icon: <AuditIcon />,            group: 'admin' },
