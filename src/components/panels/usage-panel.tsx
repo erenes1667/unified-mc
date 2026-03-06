@@ -221,7 +221,7 @@ export function UsagePanel() {
                   </Pie>
                   <Tooltip
                     contentStyle={{ background: '#0a0a0f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11 }}
-                    formatter={(val: number) => [formatTokens(val), 'tokens']}
+                    formatter={(val) => [formatTokens(Number(val || 0)), 'tokens']}
                   />
                   <Legend
                     iconSize={8}
