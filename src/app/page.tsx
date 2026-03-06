@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { NavRail } from '@/components/layout/nav-rail'
+import { Sidebar } from '@/components/layout/sidebar'
 import { HeaderBar } from '@/components/layout/header-bar'
 import { LiveFeed } from '@/components/layout/live-feed'
 import { Dashboard } from '@/components/dashboard/dashboard'
@@ -85,9 +85,9 @@ export default function Home() {
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      {/* Left: Icon rail navigation (hidden on mobile, shown as bottom bar instead) */}
-      <NavRail />
+    <div className="flex h-screen overflow-hidden" style={{ background: 'transparent' }}>
+      {/* Left: Sidebar (hidden on mobile, shown as bottom bar instead) */}
+      <Sidebar />
 
       {/* Center: Header + Content */}
       <div className="flex-1 flex flex-col min-w-0">

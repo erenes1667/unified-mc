@@ -1,0 +1,9 @@
+{
+  "id": "marketing",
+  "label": "Marketing",
+  "emoji": "📣",
+  "description": "Chat, email ops, and radar panels",
+  "panels": [
+    "overview", "tasks", "activity", "agents", "notifications", "standup"
+  ]
+}

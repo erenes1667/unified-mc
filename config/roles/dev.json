@@ -1,0 +1,12 @@
+{
+  "id": "dev",
+  "label": "Developer",
+  "emoji": "🔨",
+  "description": "Dev-focused panels: chat, tasks, pipeline, github",
+  "panels": [
+    "overview", "agents", "tasks", "sessions",
+    "activity", "logs", "memory",
+    "cron", "spawn", "webhooks", "github", "pipeline-builder",
+    "settings", "notifications"
+  ]
+}

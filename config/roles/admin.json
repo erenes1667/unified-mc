@@ -1,0 +1,10 @@
+{
+  "id": "admin",
+  "label": "Admin",
+  "emoji": "🛡️",
+  "description": "Fleet, usage, and settings (read-only)",
+  "panels": [
+    "overview", "fleet", "cost-analytics", "tokens", "agent-costs",
+    "users", "audit", "gateways", "gateway-config", "settings", "notifications"
+  ]
+}

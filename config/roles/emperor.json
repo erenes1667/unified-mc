@@ -1,0 +1,13 @@
+{
+  "id": "emperor",
+  "label": "Emperor",
+  "emoji": "👑",
+  "description": "Full access to all panels",
+  "panels": [
+    "overview", "agents", "tasks", "sessions",
+    "activity", "fleet", "cost-analytics", "logs", "tokens", "agent-costs", "memory",
+    "cron", "spawn", "webhooks", "alerts", "github", "pipeline-builder",
+    "users", "audit", "history", "gateways", "gateway-config", "integrations", "super-admin", "settings",
+    "standup", "notifications"
+  ]
+}
