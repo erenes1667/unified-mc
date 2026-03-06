@@ -251,6 +251,22 @@ function NodeConfigPanel({
 let nodeIdCounter = 100
 
 export function PipelineBuilderPanel() {
+  // ─── Coming Soon overlay ──────────────────────────────────────────────────
+  return (
+    <div className="relative flex flex-col items-center justify-center h-full min-h-[400px] p-8 text-center">
+      <div className="mb-4 text-5xl">🚧</div>
+      <h2 className="text-2xl font-bold text-foreground mb-2">Pipeline Builder</h2>
+      <p className="text-muted-foreground mb-4 max-w-sm">
+        Visual workflow automation is coming soon. This will let you chain agent actions, conditions, and triggers into automated pipelines.
+      </p>
+      <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-medium cursor-not-allowed select-none">
+        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+        Coming Soon
+      </span>
+    </div>
+  )
+
+  // eslint-disable-next-line no-unreachable
   const [nodes, setNodes, onNodesChange] = useNodesState<PipelineNodeData>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [selectedNode, setSelectedNode] = useState<Node<PipelineNodeData> | null>(null)
