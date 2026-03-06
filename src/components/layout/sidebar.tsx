@@ -36,6 +36,12 @@ const ALL_PANELS: PanelDef[] = [
   { id: 'tokens',           label: 'Tokens',            icon: <TokensIcon />,           group: 'observe' },
   { id: 'agent-costs',      label: 'Agent Costs',       icon: <AgentCostsIcon />,       group: 'observe' },
   { id: 'memory',           label: 'Memory',            icon: <MemoryIcon />,           group: 'observe' },
+  // Dynasty core panels
+  { id: 'chat-multi',       label: 'Chat',              icon: <span>💬</span>,          group: 'core' },
+  { id: 'team',             label: 'Team',              icon: <span>🏛️</span>,          group: 'core' },
+  { id: 'calendar',         label: 'Calendar',          icon: <span>📅</span>,          group: 'observe' },
+  { id: 'memory-browser',   label: 'Memory Browser',    icon: <span>🧠</span>,          group: 'observe' },
+  { id: 'docs',             label: 'Docs',              icon: <span>📚</span>,          group: 'observe' },
   // Automate
   { id: 'cron',             label: 'Cron',              icon: <CronIcon />,             group: 'automate' },
   { id: 'spawn',            label: 'Spawn',             icon: <SpawnIcon />,            group: 'automate' },

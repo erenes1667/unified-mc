@@ -138,8 +138,6 @@ export function CalendarPanel() {
     }
   }
 
-  const formatTime = (ts?: number) => ts ? new Date(ts).toLocaleString() : 'Never'
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}

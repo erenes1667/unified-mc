@@ -34,6 +34,16 @@ import { FleetOverviewPanel } from '@/components/panels/fleet-overview-panel'
 import { CostAnalyticsPanel } from '@/components/panels/cost-analytics-panel'
 import { PipelineBuilderPanel } from '@/components/panels/pipeline-builder-panel'
 import { ChatPanel } from '@/components/chat/chat-panel'
+import { UsagePanel } from '@/components/panels/usage-panel'
+import { RadarPanel } from '@/components/panels/radar-panel'
+import { DirectivesPanel } from '@/components/panels/directives-panel'
+import { KDEMetricsPanel } from '@/components/panels/kde-metrics-panel'
+import { ApprovalsPanel } from '@/components/panels/approvals-panel'
+import { ChatPanel as MultiChatPanel } from '@/components/panels/chat-panel'
+import { TeamPanel } from '@/components/panels/team-panel'
+import { CalendarPanel } from '@/components/panels/calendar-panel'
+import { MemoryPanel } from '@/components/panels/memory-panel'
+import { DocsPanel } from '@/components/panels/docs-panel'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useWebSocket } from '@/lib/websocket'
 import { useServerEvents } from '@/lib/use-server-events'
@@ -198,6 +208,28 @@ function ContentRouter({ tab }: { tab: string }) {
       return <PipelineBuilderPanel />
     case 'super-admin':
       return <SuperAdminPanel />
+    // Track 2: Core Panels
+    case 'chat-multi':
+      return <MultiChatPanel />
+    case 'team':
+      return <TeamPanel />
+    case 'calendar':
+      return <CalendarPanel />
+    case 'memory-browser':
+      return <MemoryPanel />
+    case 'docs':
+      return <DocsPanel />
+    // Track 3: Dynasty Custom Panels
+    case 'usage':
+      return <UsagePanel />
+    case 'radar':
+      return <RadarPanel />
+    case 'directives':
+      return <DirectivesPanel />
+    case 'kde':
+      return <KDEMetricsPanel />
+    case 'approvals':
+      return <ApprovalsPanel />
     default:
       return <Dashboard />
   }
