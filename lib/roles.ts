@@ -23,7 +23,11 @@ export const NAV_ITEMS = [
   { id: 'radar', label: 'Radar', icon: '📡', href: '/radar' },
   { id: 'pipeline', label: 'Pipeline', icon: '🔧', href: '/pipeline' },
   { id: 'directives', label: 'Directives', icon: '📋', href: '/directives' },
-  { id: 'admin', label: 'Admin', icon: '⚙️', href: '/admin' },
+  { id: 'setup', label: 'Setup', icon: '⚙️', href: '/setup' },
+  { id: 'cron', label: 'Cron', icon: '⏰', href: '/cron' },
+  { id: 'clients', label: 'Clients', icon: '👥', href: '/clients' },
+  { id: 'tools', label: 'Tools', icon: '🔧', href: '/tools' },
+  { id: 'admin', label: 'Admin', icon: '🛡️', href: '/admin' },
   { id: 'settings', label: 'Settings', icon: '🔩', href: '/settings' },
 ];
 

@@ -13,7 +13,8 @@
     "users", "audit", "history", "gateways", "gateway-config", "integrations", "super-admin",
     "chat", "team", "calendar", "projects", "docs", "email-ops", "kde-metrics",
     "usage", "admin", "directives", "approvals", "office", "radar",
-    "pipeline", "standup", "settings", "notifications"
+    "pipeline", "standup", "settings", "notifications",
+    "setup", "cron", "clients", "tools"
   ],
   "theme": {
     "accentLabel": "imperial gold"
