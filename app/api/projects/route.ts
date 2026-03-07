@@ -6,6 +6,10 @@ import path from 'path';
 
 const PROJECTS_DIR = path.join(os.homedir(), '.openclaw', 'workspace', 'projects');
 
+// In-memory cache for project list — TTL 30s
+let projectsListCache: { data: unknown; expiresAt: number } | null = null;
+const PROJECTS_TTL = 30_000;
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const detail = searchParams.get('name');
@@ -69,6 +73,13 @@ export async function GET(req: NextRequest) {
   }
 
   // List all projects
+  const now = Date.now();
+  if (projectsListCache && now < projectsListCache.expiresAt) {
+    return NextResponse.json(projectsListCache.data, {
+      headers: { 'Cache-Control': 's-maxage=30, stale-while-revalidate=60' },
+    });
+  }
+
   try {
     const entries = await fs.readdir(PROJECTS_DIR, { withFileTypes: true });
     const dirs = entries.filter(e => e.isDirectory() && !e.name.startsWith('.') && !e.name.startsWith('_'));
@@ -100,7 +111,11 @@ export async function GET(req: NextRequest) {
     }));
 
     projects.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
-    return NextResponse.json({ projects });
+    const result = { projects };
+    projectsListCache = { data: result, expiresAt: now + PROJECTS_TTL };
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 's-maxage=30, stale-while-revalidate=60' },
+    });
   } catch {
     return NextResponse.json({ projects: [] });
   }

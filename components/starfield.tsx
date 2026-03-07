@@ -8,6 +8,7 @@ interface Star {
   z: number;
   px: number;
   py: number;
+  colorType: 'cyan' | 'gold' | 'white'; // pre-computed, no Math.random() per frame
 }
 
 export default function Starfield() {
@@ -21,8 +22,15 @@ export default function Starfield() {
 
     let animId: number;
     const stars: Star[] = [];
-    const NUM_STARS = 200;
+    const NUM_STARS = 120; // reduced from 200 — imperceptible visually, big perf gain
     const SPEED = 0.3;
+
+    function pickColor(): Star['colorType'] {
+      const r = Math.random();
+      if (r > 0.95) return 'cyan';
+      if (r > 0.9) return 'gold';
+      return 'white';
+    }
 
     function resize() {
       if (!canvas) return;
@@ -32,13 +40,16 @@ export default function Starfield() {
 
     function initStars() {
       stars.length = 0;
+      const w = canvas?.width ?? window.innerWidth;
+      const h = canvas?.height ?? window.innerHeight;
       for (let i = 0; i < NUM_STARS; i++) {
         stars.push({
-          x: Math.random() * (canvas?.width ?? window.innerWidth) - (canvas?.width ?? window.innerWidth) / 2,
-          y: Math.random() * (canvas?.height ?? window.innerHeight) - (canvas?.height ?? window.innerHeight) / 2,
-          z: Math.random() * (canvas?.width ?? window.innerWidth),
+          x: Math.random() * w - w / 2,
+          y: Math.random() * h - h / 2,
+          z: Math.random() * w,
           px: 0,
           py: 0,
+          colorType: pickColor(),
         });
       }
     }
@@ -58,6 +69,7 @@ export default function Starfield() {
           star.z = canvas.width;
           star.px = 0;
           star.py = 0;
+          star.colorType = pickColor(); // only on reset, not every frame
         }
 
         const sx = (star.x / star.z) * canvas.width + cx;
@@ -69,9 +81,14 @@ export default function Starfield() {
           ctx.beginPath();
           ctx.moveTo(star.px, star.py);
           ctx.lineTo(sx, sy);
-          // Gold tint on some stars, cyan on others
-          const hue = Math.random() > 0.95 ? 'rgba(0,255,209,' : Math.random() > 0.9 ? 'rgba(201,168,76,' : 'rgba(200,210,255,';
-          ctx.strokeStyle = `${hue}${opacity})`;
+          // Use pre-computed color — no Math.random() in hot path
+          const strokeColor =
+            star.colorType === 'cyan'
+              ? `rgba(0,255,209,${opacity})`
+              : star.colorType === 'gold'
+              ? `rgba(201,168,76,${opacity})`
+              : `rgba(200,210,255,${opacity})`;
+          ctx.strokeStyle = strokeColor;
           ctx.lineWidth = size;
           ctx.stroke();
         }
@@ -92,13 +109,20 @@ export default function Starfield() {
     initStars();
     draw();
 
-    window.addEventListener('resize', () => { resize(); initStars(); });
+    const handleResize = () => { resize(); initStars(); };
+    window.addEventListener('resize', handleResize);
 
     return () => {
       cancelAnimationFrame(animId);
-      window.removeEventListener('resize', () => { resize(); initStars(); });
+      window.removeEventListener('resize', handleResize);
     };
   }, []);
 
-  return <canvas ref={canvasRef} id="starfield" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      id="starfield"
+      style={{ willChange: 'transform', transform: 'translateZ(0)' }}
+    />
+  );
 }

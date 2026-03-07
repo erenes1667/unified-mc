@@ -121,19 +121,36 @@ function getMemoryStats(): { totalFiles: number; todayUpdated: boolean } {
   }
 }
 
+// In-memory cache — TTL 30s for fleet data
+let fleetCache: { data: unknown; expiresAt: number } | null = null;
+const FLEET_TTL = 30_000;
+
 export async function GET() {
+  const now = Date.now();
+  if (fleetCache && now < fleetCache.expiresAt) {
+    return NextResponse.json(fleetCache.data, {
+      headers: { 'Cache-Control': 's-maxage=30, stale-while-revalidate=60' },
+    });
+  }
+
   const agents = countAgents();
   const tasks = countTasks();
   const gateway = checkGateway();
   const activity = getRecentActivity();
   const memory = getMemoryStats();
 
-  return NextResponse.json({
+  const result = {
     agents,
     tasks,
     gateway,
     activity,
     memory,
     timestamp: new Date().toISOString(),
+  };
+
+  fleetCache = { data: result, expiresAt: now + FLEET_TTL };
+
+  return NextResponse.json(result, {
+    headers: { 'Cache-Control': 's-maxage=30, stale-while-revalidate=60' },
   });
 }

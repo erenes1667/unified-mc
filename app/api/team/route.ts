@@ -22,7 +22,18 @@ const AGENT_META: Record<
   codex: { role: 'Coding', model: 'codex' },
 };
 
+// In-memory cache — TTL 60s (team data rarely changes)
+let teamCache: { data: unknown; expiresAt: number } | null = null;
+const TEAM_TTL = 60_000;
+
 export async function GET() {
+  const now = Date.now();
+  if (teamCache && now < teamCache.expiresAt) {
+    return NextResponse.json(teamCache.data, {
+      headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' },
+    });
+  }
+
   const agents: {
     id: string;
     role: string;
@@ -57,5 +68,10 @@ export async function GET() {
     });
   }
 
-  return NextResponse.json({ agents });
+  const result = { agents };
+  teamCache = { data: result, expiresAt: now + TEAM_TTL };
+
+  return NextResponse.json(result, {
+    headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' },
+  });
 }

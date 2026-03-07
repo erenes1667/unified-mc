@@ -6,6 +6,10 @@ import path from 'path';
 
 const MEMORY_DIR = path.join(os.homedir(), '.openclaw', 'workspace', 'memory');
 
+// In-memory cache for list/tree modes — TTL 30s
+const memCache = new Map<string, { data: unknown; expiresAt: number }>();
+const MEM_TTL = 30_000;
+
 interface TreeNode {
   name: string;
   path: string; // relative to MEMORY_DIR
@@ -109,11 +113,22 @@ export async function GET(req: NextRequest) {
 
   // Tree mode
   if (mode === 'tree') {
+    const cacheKey = 'tree';
+    const now = Date.now();
+    const cached = memCache.get(cacheKey);
+    if (cached && now < cached.expiresAt) return NextResponse.json(cached.data);
     const tree = await buildTree(MEMORY_DIR);
-    return NextResponse.json({ tree });
+    const result = { tree };
+    memCache.set(cacheKey, { data: result, expiresAt: now + MEM_TTL });
+    return NextResponse.json(result);
   }
 
   // Default list mode (backward compatible)
+  const cacheKey = 'list';
+  const now = Date.now();
+  const cached = memCache.get(cacheKey);
+  if (cached && now < cached.expiresAt) return NextResponse.json(cached.data);
+
   try {
     const entries = await fs.readdir(MEMORY_DIR);
     const mdFiles = entries.filter((f) => f.endsWith('.md'));
@@ -148,7 +163,9 @@ export async function GET(req: NextRequest) {
       } catch {}
     }
 
-    return NextResponse.json({ longTerm, daily, subdirs });
+    const result = { longTerm, daily, subdirs };
+    memCache.set(cacheKey, { data: result, expiresAt: now + MEM_TTL });
+    return NextResponse.json(result);
   } catch {
     return NextResponse.json({ longTerm: null, daily: [], subdirs: [] });
   }
