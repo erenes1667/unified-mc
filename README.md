@@ -7,11 +7,14 @@ A unified agent orchestration dashboard combining glassmorphism UI, real-time ch
 ```bash
 git clone https://github.com/erenes1667/unified-mc.git
 cd unified-mc
+cp .env.example .env.local   # Required — edit values for your setup
 npm install
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+> **Note:** The app connects to a local OpenClaw gateway at `127.0.0.1:18789` by default. Set `OPENCLAW_GATEWAY_HOST` and `OPENCLAW_GATEWAY_PORT` in `.env.local` if yours differs.
 
 ## Features
 

@@ -13,6 +13,7 @@ const config = [
   // Keep them off until we do a dedicated refactor pass.
   {
     rules: {
+      'react/display-name': 'off',
       'react-hooks/set-state-in-effect': 'off',
       'react-hooks/purity': 'off',
       'react-hooks/immutability': 'off',
