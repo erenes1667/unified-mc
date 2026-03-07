@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { NavRail } from '@/components/layout/nav-rail'
+import { Sidebar } from '@/components/layout/sidebar'
 import { HeaderBar } from '@/components/layout/header-bar'
 import { LiveFeed } from '@/components/layout/live-feed'
 import { Dashboard } from '@/components/dashboard/dashboard'
@@ -34,6 +34,16 @@ import { FleetOverviewPanel } from '@/components/panels/fleet-overview-panel'
 import { CostAnalyticsPanel } from '@/components/panels/cost-analytics-panel'
 import { PipelineBuilderPanel } from '@/components/panels/pipeline-builder-panel'
 import { ChatPanel } from '@/components/chat/chat-panel'
+import { UsagePanel } from '@/components/panels/usage-panel'
+import { RadarPanel } from '@/components/panels/radar-panel'
+import { DirectivesPanel } from '@/components/panels/directives-panel'
+import { KDEMetricsPanel } from '@/components/panels/kde-metrics-panel'
+import { ApprovalsPanel } from '@/components/panels/approvals-panel'
+import { ChatPanel as MultiChatPanel } from '@/components/panels/chat-panel'
+import { TeamPanel } from '@/components/panels/team-panel'
+import { CalendarPanel } from '@/components/panels/calendar-panel'
+import { MemoryPanel } from '@/components/panels/memory-panel'
+import { DocsPanel } from '@/components/panels/docs-panel'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useWebSocket } from '@/lib/websocket'
 import { useServerEvents } from '@/lib/use-server-events'
@@ -85,9 +95,9 @@ export default function Home() {
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      {/* Left: Icon rail navigation (hidden on mobile, shown as bottom bar instead) */}
-      <NavRail />
+    <div className="flex h-screen overflow-hidden" style={{ background: 'transparent' }}>
+      {/* Left: Sidebar (hidden on mobile, shown as bottom bar instead) */}
+      <Sidebar />
 
       {/* Center: Header + Content */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -198,6 +208,28 @@ function ContentRouter({ tab }: { tab: string }) {
       return <PipelineBuilderPanel />
     case 'super-admin':
       return <SuperAdminPanel />
+    // Track 2: Core Panels
+    case 'chat-multi':
+      return <MultiChatPanel />
+    case 'team':
+      return <TeamPanel />
+    case 'calendar':
+      return <CalendarPanel />
+    case 'memory-browser':
+      return <MemoryPanel />
+    case 'docs':
+      return <DocsPanel />
+    // Track 3: Dynasty Custom Panels
+    case 'usage':
+      return <UsagePanel />
+    case 'radar':
+      return <RadarPanel />
+    case 'directives':
+      return <DirectivesPanel />
+    case 'kde':
+      return <KDEMetricsPanel />
+    case 'approvals':
+      return <ApprovalsPanel />
     default:
       return <Dashboard />
   }

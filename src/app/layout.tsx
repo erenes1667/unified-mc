@@ -1,6 +1,14 @@
 import type { Metadata, Viewport } from 'next'
 import { ThemeProvider } from 'next-themes'
 import './globals.css'
+import { JetBrains_Mono } from 'next/font/google'
+import { Starfield } from '@/components/ui/starfield'
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains-mono',
+  display: 'swap',
+})
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -26,14 +34,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased" suppressHydrationWarning>
+      <body className={`antialiased ${jetbrainsMono.variable}`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           enableSystem={false}
           disableTransitionOnChange
         >
-          <div className="h-screen overflow-hidden bg-background text-foreground">
+          <Starfield />
+          <div className="h-screen overflow-hidden bg-transparent text-foreground relative z-10">
             {children}
           </div>
         </ThemeProvider>

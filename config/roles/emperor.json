@@ -1,13 +1,19 @@
 {
+  "id": "emperor",
   "role": "emperor",
   "label": "Emperor",
+  "emoji": "👑",
+  "description": "Full access to all panels",
   "rateLimit": null,
   "modelWaterfall": false,
   "panels": [
-    "chat", "tasks", "team", "memory", "calendar", "activity",
-    "projects", "docs", "email-ops", "kde-metrics", "usage",
-    "admin", "directives", "approvals", "office", "radar",
-    "pipeline", "settings"
+    "overview", "agents", "tasks", "sessions",
+    "activity", "fleet", "cost-analytics", "logs", "tokens", "agent-costs", "memory",
+    "cron", "spawn", "webhooks", "alerts", "github", "pipeline-builder",
+    "users", "audit", "history", "gateways", "gateway-config", "integrations", "super-admin",
+    "chat", "team", "calendar", "projects", "docs", "email-ops", "kde-metrics",
+    "usage", "admin", "directives", "approvals", "office", "radar",
+    "pipeline", "standup", "settings", "notifications"
   ],
   "theme": {
     "accentLabel": "imperial gold"

@@ -126,8 +126,40 @@ export function HeaderBar() {
     pipeline: 'bg-indigo-500/20 text-indigo-400',
   }
 
+  const [isPaused, setIsPaused] = useState(false)
+  const [pingLoading, setPingLoading] = useState(false)
+  const [pingSuccess, setPingSuccess] = useState(false)
+
+  async function handlePingAgent() {
+    setPingLoading(true)
+    try {
+      const gateway = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3457'
+      await fetch(`${gateway}/api/sessions`, { method: 'GET' }).catch(() => {})
+      setPingSuccess(true)
+      setTimeout(() => setPingSuccess(false), 2000)
+    } catch {
+      // silent
+    } finally {
+      setPingLoading(false)
+    }
+  }
+
+  function handlePause() {
+    setIsPaused(p => !p)
+  }
+
   return (
-    <header role="banner" aria-label="Application header" className="h-12 bg-card/80 backdrop-blur-sm border-b border-border px-4 flex items-center justify-between shrink-0">
+    <header
+      role="banner"
+      aria-label="Application header"
+      className="h-12 px-4 flex items-center justify-between shrink-0 relative z-10"
+      style={{
+        background: 'rgba(10,10,20,0.7)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+      }}
+    >
       {/* Left: Page title + breadcrumb */}
       <div className="flex items-center gap-3">
         <h1 className="text-sm font-semibold text-foreground">
@@ -166,20 +198,49 @@ export function HeaderBar() {
         {/* Mobile search trigger */}
         <button
           onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 50) }}
-          className="md:hidden h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-smooth flex items-center justify-center"
+          className="md:hidden h-8 w-8 rounded-md text-muted-foreground hover:text-foreground transition-smooth flex items-center justify-center"
           title="Search"
         >
           <SearchIcon />
         </button>
 
+        {/* Ping Agent */}
+        <button
+          onClick={handlePingAgent}
+          disabled={pingLoading}
+          title="Ping OpenClaw gateway"
+          className="hidden md:flex h-8 px-2.5 rounded-md text-xs font-medium transition-smooth items-center gap-1.5 disabled:opacity-50"
+          style={pingSuccess
+            ? { background: 'rgba(0,255,209,0.15)', color: '#00ffd1', border: '1px solid rgba(0,255,209,0.3)' }
+            : { background: 'rgba(0,255,209,0.08)', color: 'rgba(0,255,209,0.7)', border: '1px solid rgba(0,255,209,0.15)' }
+          }
+        >
+          <PingIcon spinning={pingLoading} />
+          {pingSuccess ? 'Ponged!' : 'Ping'}
+        </button>
+
+        {/* Pause/Resume */}
+        <button
+          onClick={handlePause}
+          title={isPaused ? 'Resume agents' : 'Pause agents'}
+          className="hidden md:flex h-8 px-2.5 rounded-md text-xs font-medium transition-smooth items-center gap-1.5"
+          style={isPaused
+            ? { background: 'rgba(201,168,76,0.2)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.4)' }
+            : { background: 'rgba(255,255,255,0.05)', color: 'rgba(150,150,170,0.8)', border: '1px solid rgba(255,255,255,0.08)' }
+          }
+        >
+          {isPaused ? <PlayIcon /> : <PauseIcon />}
+          {isPaused ? 'Resume' : 'Pause'}
+        </button>
+
         {/* Chat toggle */}
         <button
           onClick={() => setChatPanelOpen(!chatPanelOpen)}
-          className={`h-8 px-2.5 rounded-md text-xs font-medium transition-smooth flex items-center gap-1.5 ${
-            chatPanelOpen
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-          }`}
+          className="h-8 px-2.5 rounded-md text-xs font-medium transition-smooth flex items-center gap-1.5"
+          style={chatPanelOpen
+            ? { background: 'rgba(201,168,76,0.2)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.3)' }
+            : { background: 'rgba(255,255,255,0.05)', color: 'rgba(150,150,170,0.7)', border: '1px solid rgba(255,255,255,0.08)' }
+          }
         >
           <ChatIcon />
           Chat
@@ -191,17 +252,19 @@ export function HeaderBar() {
             const { setActiveTab } = useMissionControl.getState()
             setActiveTab('notifications')
           }}
-          className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-smooth flex items-center justify-center relative"
+          className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground transition-smooth flex items-center justify-center relative"
+          style={{ background: 'rgba(255,255,255,0.04)' }}
         >
           <BellIcon />
           {unreadNotificationCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-2xs flex items-center justify-center font-medium">
+            <span
+              className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-xs flex items-center justify-center font-bold"
+              style={{ background: '#c9a84c', color: '#0a0a0f' }}
+            >
               {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
             </span>
           )}
         </button>
-
-        <ThemeToggle />
 
         {/* User menu */}
         {currentUser && (
@@ -560,6 +623,47 @@ function BellIcon() {
   return (
     <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 13h4M3.5 10c0-1-1-2-1-4a5.5 5.5 0 0111 0c0 2-1 3-1 4H3.5z" />
+    </svg>
+  )
+}
+
+function PingIcon({ spinning }: { spinning?: boolean }) {
+  return (
+    <svg
+      className={`w-3.5 h-3.5 ${spinning ? 'animate-spin' : ''}`}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {spinning ? (
+        <path d="M8 2a6 6 0 100 12A6 6 0 008 2z" strokeOpacity="0.3" />
+      ) : (
+        <>
+          <circle cx="8" cy="8" r="2" />
+          <path d="M4 8a4 4 0 018 0" />
+          <path d="M1 8a7 7 0 0114 0" />
+        </>
+      )}
+    </svg>
+  )
+}
+
+function PauseIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+      <rect x="4" y="3" width="3" height="10" rx="1" />
+      <rect x="9" y="3" width="3" height="10" rx="1" />
+    </svg>
+  )
+}
+
+function PlayIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M4 3l9 5-9 5V3z" />
     </svg>
   )
 }

@@ -1,9 +1,17 @@
 {
+  "id": "dev",
   "role": "dev",
   "label": "Developer",
+  "emoji": "🔨",
+  "description": "Dev-focused panels: chat, tasks, pipeline, github",
   "rateLimit": 10,
   "modelWaterfall": true,
-  "panels": ["chat", "tasks", "projects", "pipeline", "activity", "settings"],
+  "panels": [
+    "overview", "agents", "tasks", "sessions",
+    "activity", "logs", "memory",
+    "cron", "spawn", "webhooks", "github", "pipeline-builder",
+    "chat", "projects", "pipeline", "settings", "notifications"
+  ],
   "theme": {
     "accentLabel": "dev"
   }

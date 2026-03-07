@@ -1,9 +1,15 @@
 {
+  "id": "marketing",
   "role": "marketing",
   "label": "Marketing",
+  "emoji": "📣",
+  "description": "Chat, email ops, and radar panels",
   "rateLimit": 5,
   "modelWaterfall": true,
-  "panels": ["chat", "email-ops", "settings"],
+  "panels": [
+    "overview", "tasks", "activity", "agents",
+    "chat", "email-ops", "standup", "settings", "notifications"
+  ],
   "theme": {
     "accentLabel": "team"
   }

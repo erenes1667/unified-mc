@@ -1,9 +1,16 @@
 {
+  "id": "admin",
   "role": "admin",
   "label": "Admin",
+  "emoji": "🛡️",
+  "description": "Fleet, usage, and settings",
   "rateLimit": null,
   "modelWaterfall": false,
-  "panels": ["usage", "admin", "team", "activity", "settings"],
+  "panels": [
+    "overview", "fleet", "cost-analytics", "tokens", "agent-costs",
+    "users", "audit", "gateways", "gateway-config",
+    "usage", "team", "activity", "settings", "notifications"
+  ],
   "theme": {
     "accentLabel": "admin"
   }
