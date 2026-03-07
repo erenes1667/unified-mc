@@ -1,206 +1,206 @@
-#!/bin/bash
-# Unified MC Installer — One command to rule them all
-# Usage: curl -sSL https://raw.githubusercontent.com/erenes1667/unified-mc/main/installer/install.sh | bash
-#
-# What this does:
-# 1. Checks/installs prerequisites (Node, Git, Homebrew)
-# 2. Installs OpenClaw
-# 3. Clones Unified MC
-# 4. Runs the onboarding wizard (AI model login, personality, etc)
-# 5. Installs dependencies
-# 6. Starts MC in dev mode via launchd (auto-restarts, survives reboots)
-# 7. Sets up Antigravity self-healer (hourly)
+#!/usr/bin/env bash
+# ============================================================
+# O7 OpenClaw macOS Installer
+# One-click setup for the Optimum7 team
+# Usage: bash install.sh
+# ============================================================
 
 set -euo pipefail
+INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-REPO_URL="https://github.com/erenes1667/unified-mc.git"
-APP_DIR="$HOME/.openclaw/workspace/projects/unified-mc"
-INSTALLER_DIR="$APP_DIR/installer"
-PORT=3000
-PLIST_LABEL="com.o7.mission-control"
-PLIST_FILE="$HOME/Library/LaunchAgents/${PLIST_LABEL}.plist"
+source "${INSTALLER_DIR}/lib/ui.sh"
+source "${INSTALLER_DIR}/lib/checks.sh"
+source "${INSTALLER_DIR}/lib/validate.sh"
+source "${INSTALLER_DIR}/lib/auth.sh"
+source "${INSTALLER_DIR}/lib/antigravity.sh"
 
-# ─── Colors ────────────────────────────────────────────────────────────────────
+# State file for resuming partial installs
+STATE_FILE="${HOME}/.openclaw/.install-state"
+mkdir -p "$(dirname "$STATE_FILE")"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
+state_done() { echo "$1" >> "$STATE_FILE"; }
+state_check() { grep -q "^$1$" "$STATE_FILE" 2>/dev/null; }
 
-log()     { echo -e "${BLUE}[O7]${NC} $1"; }
-success() { echo -e "${GREEN}  ✓${NC} $1"; }
-warn()    { echo -e "${YELLOW}  ⚠${NC} $1"; }
-error()   { echo -e "${RED}  ✗${NC} $1"; }
+# ── PHASE 1: Welcome ─────────────────────────────────────────
+banner
 
-# ─── Phase 1: Prerequisites ───────────────────────────────────────────────────
+echo -e "  This installer will set up ${BOLD}OpenClaw + Mission Control${RESET} on your Mac."
+echo -e "  It handles everything: dependencies, AI model login, services, and health checks."
+echo -e "  Takes about ${BOLD}5-10 minutes${RESET} on a good connection."
+echo
 
-check_prereqs() {
-  echo ""
-  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo -e "${BOLD}  🚀  Optimum7 AI Assistant — Installer${NC}"
-  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo ""
-  log "Checking your system..."
+if [[ -f "$STATE_FILE" ]]; then
+  warn "Found a previous install attempt. Resuming from where it left off."
+  info "Delete ${STATE_FILE} to start fresh."
+  echo
+fi
 
-  # macOS check
-  if [[ "$OSTYPE" != "darwin"* ]]; then
-    error "This installer is for macOS only."
-    error "For Linux, see: https://github.com/erenes1667/unified-mc#linux"
-    exit 1
-  fi
+confirm "Ready to start?" || { echo "Aborted."; exit 0; }
+log "=== INSTALL STARTED $(date) ==="
 
-  # Homebrew
-  if ! command -v brew &>/dev/null; then
-    log "Installing Homebrew (macOS package manager)..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    # Add to PATH for Apple Silicon
-    if [[ -f /opt/homebrew/bin/brew ]]; then
-      eval "$(/opt/homebrew/bin/brew shellenv)"
-    fi
-    if ! command -v brew &>/dev/null; then
-      error "Homebrew install failed. Run this first:"
-      error '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-      exit 1
-    fi
-  fi
-  success "Homebrew"
+# ── PHASE 2: System Checks ───────────────────────────────────
+if ! state_check "checks"; then
+  run_all_checks || exit 1
+  state_done "checks"
+else
+  ok "System checks already passed — skipping"
+fi
 
-  # Node.js
-  if ! command -v node &>/dev/null; then
-    log "Installing Node.js..."
-    brew install node
-  fi
-  local node_major
-  node_major=$(node -v | sed 's/v//' | cut -d. -f1)
-  if (( node_major < 22 )); then
-    log "Upgrading Node.js (need v22+, found $(node -v))..."
-    brew upgrade node
-  fi
-  success "Node.js $(node -v)"
+# ── PHASE 3: Install OpenClaw ────────────────────────────────
+section 2 "Install OpenClaw"
 
-  # Git
-  if ! command -v git &>/dev/null; then
-    log "Installing Git..."
-    xcode-select --install 2>/dev/null || brew install git
-  fi
-  success "Git"
-
-  # pnpm (faster than npm for installs)
-  if ! command -v pnpm &>/dev/null; then
-    log "Installing pnpm..."
-    npm install -g pnpm 2>/dev/null
-  fi
-  if command -v pnpm &>/dev/null; then
-    success "pnpm"
-  fi
-}
-
-# ─── Phase 2: Install OpenClaw ────────────────────────────────────────────────
-
-setup_openclaw() {
-  log "Setting up OpenClaw..."
-
+if ! state_check "openclaw"; then
   if command -v openclaw &>/dev/null; then
-    success "OpenClaw $(openclaw --version 2>/dev/null || echo 'installed')"
-    # Update in background
+    local_ver=$(openclaw --version 2>/dev/null | awk '{print $1}')
+    ok "OpenClaw already installed (${local_ver})"
+    info "Checking for updates..."
     npm install -g openclaw@latest &>/dev/null &
+    spin $! "Updating OpenClaw..."
+    wait $!
   else
-    log "Installing OpenClaw..."
-    npm install -g openclaw@latest
-    if command -v openclaw &>/dev/null; then
-      success "OpenClaw $(openclaw --version 2>/dev/null)"
-    else
-      error "OpenClaw installation failed."
-      error "Try manually: npm install -g openclaw@latest"
+    info "Installing OpenClaw..."
+    npm install -g openclaw@latest &
+    spin $! "Installing OpenClaw (this may take a minute)..."
+    wait $!
+    if ! command -v openclaw &>/dev/null; then
+      fail "OpenClaw install failed."
+      heal_install_error "npm install -g openclaw@latest failed"
       exit 1
     fi
   fi
-}
+  ok "OpenClaw $(openclaw --version 2>/dev/null)"
+  log "OK: OpenClaw installed"
+  state_done "openclaw"
+else
+  ok "OpenClaw already installed — skipping"
+fi
 
-# ─── Phase 3: Clone/Update Repo ───────────────────────────────────────────────
+# ── PHASE 4: AI Model Auth ───────────────────────────────────
+if ! state_check "auth"; then
+  run_auth_setup || exit 1
+  state_done "auth"
+else
+  ok "Auth already configured — skipping"
+fi
 
-setup_repo() {
-  log "Getting Mission Control..."
+# ── PHASE 5: Role Selection ──────────────────────────────────
+section 4 "Your Role"
+echo
+echo -e "  ${BOLD}What's your role at Optimum7?${RESET}"
+echo -e "  ${DIM}This pre-configures the right tools for you.${RESET}"
+echo
 
-  if [[ -d "$APP_DIR/.git" ]]; then
-    cd "$APP_DIR"
-    git pull --quiet origin main 2>/dev/null || git pull --quiet origin master 2>/dev/null || true
-    success "Updated to latest version"
+ROLE_IDX=$(menu "  Select your role:" \
+  "📧  Marketing / Email (Klaviyo, campaigns, flows)" \
+  "📈  PPC / Ads (Google Ads, Meta, reporting)" \
+  "💻  Developer (coding agents, GitHub, CI/CD)" \
+  "👑  Admin (full access, everything)" \
+  "🎛️   Custom (pick and choose later)")
+
+ROLES=("marketing" "ppc" "dev" "admin" "custom")
+SELECTED_ROLE="${ROLES[$ROLE_IDX]}"
+ok "Role set: ${SELECTED_ROLE}"
+log "ROLE: ${SELECTED_ROLE}"
+
+# ── PHASE 6: OpenClaw Gateway Daemon ─────────────────────────
+section 5 "OpenClaw Gateway"
+
+if ! state_check "gateway"; then
+  info "Setting up OpenClaw gateway service (auto-starts on boot)..."
+
+  GATEWAY_TOKEN=$(openssl rand -base64 32 | tr -d /=+ | head -c 40)
+  GATEWAY_PORT=18789
+
+  openclaw onboard \
+    --non-interactive \
+    --accept-risk \
+    --install-daemon \
+    --gateway-auth token \
+    --gateway-token "$GATEWAY_TOKEN" \
+    --gateway-port "$GATEWAY_PORT" \
+    --gateway-bind loopback \
+    --flow quickstart \
+    2>&1 | while read -r line; do
+      echo -e "  ${DIM}${line}${RESET}"
+    done
+
+  sleep 3
+
+  if curl -s "http://localhost:${GATEWAY_PORT}/health" &>/dev/null; then
+    ok "OpenClaw gateway running on port ${GATEWAY_PORT}"
+    log "OK: Gateway started on ${GATEWAY_PORT}"
+    state_done "gateway"
   else
-    mkdir -p "$(dirname "$APP_DIR")"
-    git clone --quiet "$REPO_URL" "$APP_DIR"
-    cd "$APP_DIR"
-    success "Downloaded Mission Control"
+    warn "Gateway may still be starting up..."
+    heal_install_error "openclaw gateway not responding on port ${GATEWAY_PORT}"
   fi
-}
+else
+  ok "Gateway already configured — skipping"
+fi
 
-# ─── Phase 4: Interactive Onboarding ──────────────────────────────────────────
+# ── PHASE 7: Mission Control ──────────────────────────────────
+section 6 "Mission Control Dashboard"
 
-run_onboarding() {
-  log "Starting setup wizard..."
-  echo ""
+MC_DIR="${HOME}/projects/mission-control"
+MC_REPO="https://github.com/erenes1667/mission-control.git"
 
-  # curl | bash means stdin is the script, not the terminal.
-  # We need /dev/tty for interactive input.
-  if [[ -t 0 ]]; then
-    node "$INSTALLER_DIR/onboard.mjs"
+if ! state_check "mc"; then
+  if [[ -d "$MC_DIR/.git" ]]; then
+    info "Mission Control already cloned. Pulling latest..."
+    git -C "$MC_DIR" pull --quiet &
+    spin $! "Updating Mission Control..."
+    wait $!
   else
-    # Redirect from /dev/tty so user can type
-    node "$INSTALLER_DIR/onboard.mjs" </dev/tty
+    info "Cloning Mission Control..."
+    mkdir -p "$(dirname "$MC_DIR")"
+    git clone --quiet "$MC_REPO" "$MC_DIR" &
+    spin $! "Cloning Mission Control..."
+    wait $!
   fi
-}
 
-# ─── Phase 5: Install Dependencies ────────────────────────────────────────────
-
-install_deps() {
-  log "Installing dependencies (this takes a minute)..."
-  cd "$APP_DIR"
-  if command -v pnpm &>/dev/null; then
-    pnpm install --silent 2>/dev/null || pnpm install
+  if [[ ! -d "$MC_DIR" ]]; then
+    fail "Could not get Mission Control from ${MC_REPO}"
+    info "Ask Enes to share access to the repo."
+    log "FAIL: MC clone failed"
   else
-    npm install 2>/dev/null || npm install
+    info "Installing dependencies..."
+    cd "$MC_DIR"
+    pnpm install --silent &
+    spin $! "Installing dependencies..."
+    wait $!
+
+    ok "Mission Control ready"
+    log "OK: Mission Control installed at ${MC_DIR}"
+    state_done "mc"
   fi
-  success "Dependencies installed"
-}
+else
+  ok "Mission Control already set up — skipping"
+fi
 
-# ─── Phase 6: Launch (Dev Mode — no build needed) ─────────────────────────────
+# ── PHASE 8: Mission Control launchd Service ──────────────────
+section 7 "Mission Control Service"
 
-install_service() {
-  local NODE_PATH
-  NODE_PATH=$(which node)
-  local NODE_DIR
-  NODE_DIR=$(dirname "$NODE_PATH")
-  local LOG_DIR="$APP_DIR/logs"
-  mkdir -p "$LOG_DIR"
+if ! state_check "mc-daemon" && [[ -d "$MC_DIR" ]]; then
+  MC_PLIST="${HOME}/Library/LaunchAgents/com.o7.mission-control.plist"
+  NODE_BIN=$(which node)
+  NODE_DIR=$(dirname "$NODE_BIN")
 
-  log "Installing auto-start service..."
-
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    # Stop any existing service
-    launchctl unload "$PLIST_FILE" 2>/dev/null || true
-
-    cat > "$PLIST_FILE" << PEOF
+  cat > "$MC_PLIST" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>${PLIST_LABEL}</string>
+    <string>com.o7.mission-control</string>
     <key>WorkingDirectory</key>
-    <string>${APP_DIR}</string>
+    <string>${MC_DIR}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>${NODE_PATH}</string>
+        <string>${NODE_BIN}</string>
         <string>node_modules/next/dist/bin/next</string>
         <string>dev</string>
         <string>--hostname</string>
         <string>127.0.0.1</string>
-        <string>--port</string>
-        <string>${PORT}</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
@@ -214,132 +214,71 @@ install_service() {
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>${LOG_DIR}/stdout.log</string>
+    <string>/tmp/mission-control.log</string>
     <key>StandardErrorPath</key>
-    <string>${LOG_DIR}/stderr.log</string>
+    <string>/tmp/mission-control.err</string>
 </dict>
 </plist>
-PEOF
+PLIST
 
-    launchctl load "$PLIST_FILE"
-    success "Service installed (auto-starts on boot, auto-restarts on crash)"
+  launchctl unload "$MC_PLIST" 2>/dev/null || true
+  launchctl load "$MC_PLIST"
+
+  sleep 5
+  if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 --max-time 10 | grep -qE "200|307"; then
+    ok "Mission Control running at http://localhost:3000"
+    log "OK: Mission Control daemon installed"
+    state_done "mc-daemon"
+    open "http://localhost:3000" 2>/dev/null || true
+  else
+    warn "Mission Control is starting (can take 30s on first boot)"
+    info "It will be available at http://localhost:3000 shortly"
+    log "WARN: MC not yet responding, but daemon installed"
+    state_done "mc-daemon"
   fi
-}
+else
+  ok "Mission Control service already configured — skipping"
+fi
 
-start_app() {
-  log "Starting Mission Control..."
+# ── PHASE 9: Antigravity ──────────────────────────────────────
+setup_antigravity
 
-  launchctl start "$PLIST_LABEL" 2>/dev/null || true
+# ── PHASE 10: Summary ─────────────────────────────────────────
+section 10 "Setup Complete"
+echo
+echo -e "${BOLD}${GREEN}  🎉 OpenClaw is installed and running!${RESET}"
+echo
+echo -e "${BOLD}  What's set up:${RESET}"
 
-  # Wait for it to come up
-  local i
-  for i in $(seq 1 30); do
-    if curl -s -o /dev/null "http://localhost:$PORT" 2>/dev/null; then
-      success "Running at http://localhost:$PORT"
-      # Open browser
-      open "http://localhost:$PORT" 2>/dev/null || true
-      return 0
-    fi
-    sleep 1
-  done
+# Auth results
+for result in "${AUTH_RESULTS[@]}"; do
+  provider=$(echo "$result" | cut -d: -f1)
+  status=$(echo "$result" | cut -d: -f2)
+  case "$status" in
+    ok)      summary_row "  ✅ ${provider^}" "working" ;;
+    skipped) summary_row "  ⏭️  ${provider^}" "skipped (set up later)" ;;
+    failed)  summary_row "  ❌ ${provider^}" "failed (needs attention)" ;;
+  esac
+done
 
-  warn "Still starting up. Give it 30 more seconds, then open http://localhost:$PORT"
-}
+echo
+echo -e "${BOLD}  Services:${RESET}"
+summary_row "  🦞 OpenClaw Gateway" "localhost:18789 (auto-start)"
+summary_row "  📊 Mission Control" "http://localhost:3000 (auto-start)"
+summary_row "  🛡️  Antigravity" "every 30 min (auto-heal)"
+echo
+echo -e "${BOLD}  Quick links:${RESET}"
+echo -e "  ${CYAN}→ Mission Control:${RESET}  http://localhost:3000"
+echo -e "  ${CYAN}→ Docs:${RESET}             https://docs.openclaw.ai"
+echo -e "  ${CYAN}→ Discord:${RESET}          https://discord.gg/clawd"
+echo
+echo -e "${BOLD}  Useful commands:${RESET}"
+echo -e "  ${DIM}openclaw gateway status${RESET}  — check gateway"
+echo -e "  ${DIM}openclaw configure${RESET}        — add/fix auth profiles"
+echo -e "  ${DIM}openclaw agent --message 'hi'${RESET} — test your AI"
+echo
+echo -e "${DIM}  Install log: ${HOME}/.openclaw/install.log${RESET}"
+echo
 
-# ─── Phase 7: Antigravity Self-Healer ─────────────────────────────────────────
-
-setup_antigravity() {
-  local ANTIGRAVITY_SRC="$INSTALLER_DIR/lib/antigravity-standalone.sh"
-  local ANTIGRAVITY_DST="$HOME/.openclaw/antigravity/antigravity.sh"
-
-  if [[ ! -f "$ANTIGRAVITY_SRC" ]]; then
-    return 0
-  fi
-
-  log "Setting up self-healer..."
-  mkdir -p "$(dirname "$ANTIGRAVITY_DST")"
-  cp "$ANTIGRAVITY_SRC" "$ANTIGRAVITY_DST"
-  chmod +x "$ANTIGRAVITY_DST"
-
-  # Run initial health check
-  bash "$ANTIGRAVITY_DST" health 2>/dev/null || true
-
-  # Install hourly launchd timer
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    local AG_PLIST="$HOME/Library/LaunchAgents/com.o7.antigravity.plist"
-    local AG_GEMINI_KEY=""
-    if [[ -f "$HOME/.openclaw/antigravity/.env" ]]; then
-      AG_GEMINI_KEY=$(grep "^GEMINI_API_KEY=" "$HOME/.openclaw/antigravity/.env" 2>/dev/null | cut -d= -f2- || true)
-    fi
-
-    cat > "$AG_PLIST" << AGEOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.o7.antigravity</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/bin/bash</string>
-        <string>${ANTIGRAVITY_DST}</string>
-        <string>health</string>
-    </array>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PATH</key>
-        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
-        <key>GEMINI_API_KEY</key>
-        <string>${AG_GEMINI_KEY}</string>
-    </dict>
-    <key>StartInterval</key>
-    <integer>3600</integer>
-    <key>RunAtLoad</key>
-    <false/>
-    <key>StandardOutPath</key>
-    <string>/tmp/antigravity.log</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/antigravity.err</string>
-</dict>
-</plist>
-AGEOF
-    launchctl unload "$AG_PLIST" 2>/dev/null || true
-    launchctl load "$AG_PLIST" 2>/dev/null || true
-    success "Antigravity self-healer (runs every hour)"
-  fi
-}
-
-# ─── Summary ───────────────────────────────────────────────────────────────────
-
-print_summary() {
-  echo ""
-  echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo -e "${BOLD}${GREEN}  ✅  You're all set!${NC}"
-  echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo ""
-  echo -e "   ${BOLD}🌐 Dashboard:${NC}   http://localhost:${PORT}"
-  echo -e "   ${BOLD}🛡️  Self-healer:${NC} Antigravity (checks every hour)"
-  echo ""
-  echo -e "   ${DIM}Logs:     tail -f ${APP_DIR}/logs/stderr.log${NC}"
-  echo -e "   ${DIM}Restart:  launchctl stop ${PLIST_LABEL} && launchctl start ${PLIST_LABEL}${NC}"
-  echo -e "   ${DIM}Health:   bash ~/.openclaw/antigravity/antigravity.sh health${NC}"
-  echo ""
-  echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo ""
-}
-
-# ─── Main ──────────────────────────────────────────────────────────────────────
-
-main() {
-  check_prereqs
-  setup_openclaw
-  setup_repo
-  install_deps
-  run_onboarding
-  install_service
-  start_app
-  setup_antigravity
-  print_summary
-}
-
-main "$@"
+rm -f "$STATE_FILE"
+log "=== INSTALL COMPLETE $(date) role=${SELECTED_ROLE} ==="
