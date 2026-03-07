@@ -141,8 +141,8 @@ fi
 # ── PHASE 7: Mission Control ──────────────────────────────────
 section 6 "Mission Control Dashboard"
 
-MC_DIR="${HOME}/projects/mission-control"
-MC_REPO="https://github.com/erenes1667/mission-control.git"
+MC_DIR="${HOME}/projects/unified-mc"
+MC_REPO="https://github.com/erenes1667/unified-mc.git"
 
 if ! state_check "mc"; then
   if [[ -d "$MC_DIR/.git" ]]; then
