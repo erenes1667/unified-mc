@@ -8,6 +8,19 @@
 set -euo pipefail
 INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# ── Profile isolation ────────────────────────────────────────
+PROFILE="default"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --profile) PROFILE="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+if [[ "$PROFILE" != "default" ]]; then
+  export OPENCLAW_HOME="${HOME}/.openclaw-${PROFILE}"
+  mkdir -p "$OPENCLAW_HOME"
+fi
+
 source "${INSTALLER_DIR}/lib/ui.sh"
 source "${INSTALLER_DIR}/lib/checks.sh"
 source "${INSTALLER_DIR}/lib/validate.sh"
