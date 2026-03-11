@@ -1,6 +1,6 @@
 {
   "name": "@erenes1667/o7-cli",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Optimum7 OpenClaw installer and lifecycle manager",
   "type": "module",
   "bin": {
@@ -12,10 +12,9 @@
   },
   "files": [
     "bin/",
-    "lib/",
     "README.md"
   ],
-  "keywords": ["openclaw", "optimum7", "cli", "installer"],
+  "keywords": ["openclaw", "optimum7", "cli", "installer", "mission-control"],
   "repository": {
     "type": "git",
     "url": "https://github.com/erenes1667/unified-mc.git",
