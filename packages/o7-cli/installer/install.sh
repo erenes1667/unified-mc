@@ -51,6 +51,31 @@ fi
 confirm "Ready to start?" || { echo "Aborted."; exit 0; }
 log "=== INSTALL STARTED $(date) ==="
 
+# ── Detect existing OpenClaw install ─────────────────────────
+EXISTING_INSTALL=false
+SKIP_AUTH=false
+SKIP_GATEWAY=false
+if [[ -f "${HOME}/.openclaw/openclaw.json" ]] && command -v openclaw &>/dev/null; then
+  EXISTING_INSTALL=true
+  echo
+  warn "Existing OpenClaw installation detected!"
+  info "Config: ~/.openclaw/openclaw.json"
+  info "Version: $(openclaw --version 2>/dev/null || echo 'unknown')"
+  echo
+  if confirm "  Skip auth & gateway setup to preserve your current config?"; then
+    SKIP_AUTH=true
+    SKIP_GATEWAY=true
+    ok "Will preserve existing config. Only updating OpenClaw + Mission Control."
+  else
+    warn "Proceeding with full setup. Your existing config MAY be overwritten."
+    if ! confirm "  Are you sure? This could reset your auth profiles and gateway config."; then
+      echo "Aborted. Your config is safe."
+      exit 0
+    fi
+  fi
+  echo
+fi
+
 # ── PHASE 2: System Checks ───────────────────────────────────
 if ! state_check "checks"; then
   run_all_checks || exit 1
@@ -89,7 +114,9 @@ else
 fi
 
 # ── PHASE 4: AI Model Auth ───────────────────────────────────
-if ! state_check "auth"; then
+if [[ "$SKIP_AUTH" == "true" ]]; then
+  ok "Auth setup skipped — preserving existing config"
+elif ! state_check "auth"; then
   run_auth_setup || exit 1
   state_done "auth"
 else
@@ -118,7 +145,9 @@ log "ROLE: ${SELECTED_ROLE}"
 # ── PHASE 6: OpenClaw Gateway Daemon ─────────────────────────
 section 5 "OpenClaw Gateway"
 
-if ! state_check "gateway"; then
+if [[ "$SKIP_GATEWAY" == "true" ]]; then
+  ok "Gateway setup skipped — preserving existing config"
+elif ! state_check "gateway"; then
   info "Setting up OpenClaw gateway service (auto-starts on boot)..."
 
   GATEWAY_TOKEN=$(openssl rand -base64 32 | tr -d /=+ | head -c 40)

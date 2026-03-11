@@ -5,7 +5,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { homedir, platform, hostname, release } from 'os';
 
-const VERSION = '1.1.3';
+const VERSION = '1.1.4';
 const O7_ADMIN_URL = 'https://o7-os-admin-production.up.railway.app';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
