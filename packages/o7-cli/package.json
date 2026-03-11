@@ -1,11 +1,11 @@
 {
   "name": "@erenes1667/o7-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Optimum7 OpenClaw installer and lifecycle manager",
   "type": "module",
   "bin": {
-    "o7-setup": "./bin/o7-setup.js",
-    "o7": "./bin/o7.js"
+    "o7-setup": "./bin/o7-setup",
+    "o7": "./bin/o7"
   },
   "engines": {
     "node": ">=18"
