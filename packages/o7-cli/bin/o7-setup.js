@@ -48,6 +48,12 @@ try {
   process.exit(1);
 }
 
+// Clean up temp clone if we made one
+const tmpDir = join(homedir(), '.openclaw/.setup-tmp');
+if (existsSync(tmpDir)) {
+  try { execSync(`rm -rf "${tmpDir}"`, { stdio: 'ignore' }); } catch {}
+}
+
 console.log(`
 \x1b[32m✓ Installation complete!\x1b[0m
 

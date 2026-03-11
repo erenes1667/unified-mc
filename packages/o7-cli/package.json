@@ -15,5 +15,11 @@
     "lib/",
     "README.md"
   ],
+  "keywords": ["openclaw", "optimum7", "cli", "installer"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/erenes1667/unified-mc.git",
+    "directory": "packages/o7-cli"
+  },
   "license": "MIT"
 }

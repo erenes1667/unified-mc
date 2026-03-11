@@ -11,6 +11,17 @@ const PID_FILE = join(STATE_DIR, '.mc.pid');
 mkdirSync(STATE_DIR, { recursive: true });
 
 const cmd = process.argv[2];
+const VERSION = '1.0.0';
+
+// Handle flags before command dispatch
+if (cmd === '--help' || cmd === '-h') {
+  showHelp();
+  process.exit(0);
+}
+if (cmd === '--version' || cmd === '-v') {
+  console.log(VERSION);
+  process.exit(0);
+}
 
 function run(c, opts = {}) {
   try {
@@ -65,6 +76,7 @@ function start() {
     cwd: MC_DIR,
     detached: true,
     stdio: 'ignore',
+    env: { ...process.env, PATH: `${dirname(process.execPath)}:/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ''}` },
   });
   mc.unref();
   writeFileSync(PID_FILE, String(mc.pid));
@@ -103,9 +115,9 @@ function update() {
 
 const commands = { status, start, stop, restart, update };
 
-if (!cmd || !commands[cmd]) {
+function showHelp() {
   console.log(`
-\x1b[1mO7 - Optimum7 OpenClaw Manager\x1b[0m
+\x1b[1mO7 - Optimum7 OpenClaw Manager\x1b[0m  v${VERSION}
 
 Usage: o7 <command>
 
@@ -115,8 +127,22 @@ Commands:
   restart   Restart both
   update    Pull latest, install deps, rebuild, restart
   status    Show running status
+
+Options:
+  --help, -h       Show this help
+  --version, -v    Show version
 `);
-  process.exit(cmd ? 1 : 0);
+}
+
+if (!cmd) {
+  showHelp();
+  process.exit(0);
+}
+
+if (!commands[cmd]) {
+  console.error(`Unknown command: ${cmd}`);
+  showHelp();
+  process.exit(1);
 }
 
 commands[cmd]();
