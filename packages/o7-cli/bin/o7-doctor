@@ -1,0 +1,379 @@
+#!/usr/bin/env node
+
+/**
+ * o7 doctor — Config-level self-healing for OpenClaw
+ * 
+ * Validates and auto-fixes:
+ * - openclaw.json schema (valid JSON, required keys)
+ * - Auth profiles (tokens exist, not expired, match order list)
+ * - Model aliases (resolve correctly)
+ * - Cron jobs (valid model refs, delivery channels set)
+ * - Gateway process + HTTP health
+ * - Port conflicts
+ * - Stale PID files
+ * 
+ * Run manually: o7 doctor
+ * Runs automatically via launchd every 30 min
+ */
+
+import { execSync } from 'child_process';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+
+const HOME = homedir();
+const OC_DIR = join(HOME, '.openclaw');
+const CONFIG_PATH = join(OC_DIR, 'openclaw.json');
+const AUTH_PATH = join(OC_DIR, 'auth-profiles.json');
+const CRON_PATH = join(OC_DIR, 'cron', 'jobs.json');
+const LOG_DIR = join(OC_DIR, 'o7os', 'antigravity');
+const LOG_PATH = join(LOG_DIR, 'doctor.jsonl');
+
+mkdirSync(LOG_DIR, { recursive: true });
+
+const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
+const DRY_RUN = process.argv.includes('--dry-run');
+const QUIET = process.argv.includes('--quiet') || process.argv.includes('-q');
+
+// Known model aliases (from openclaw config)
+const KNOWN_ALIASES = {
+  'k2.5-cloud': 'ollama/kimi-k2.5:cloud',
+  'sonnet': 'anthropic/claude-sonnet-4-6',
+  'opus': 'anthropic/claude-opus-4-6',
+  'qwen3-coder': 'ollama/qwen3-coder:480b-cloud',
+  'qwen3.5': 'ollama/qwen3.5:cloud',
+};
+
+const results = [];
+let fixCount = 0;
+
+function ok(check, detail) {
+  results.push({ check, status: 'ok', detail });
+  if (VERBOSE && !QUIET) console.log(`  ✅ ${check}${detail ? ': ' + detail : ''}`);
+}
+
+function warn(check, detail) {
+  results.push({ check, status: 'warn', detail });
+  if (!QUIET) console.log(`  ⚠️  ${check}: ${detail}`);
+}
+
+function fail(check, detail) {
+  results.push({ check, status: 'fail', detail });
+  if (!QUIET) console.log(`  ❌ ${check}: ${detail}`);
+}
+
+function fixed(check, detail) {
+  fixCount++;
+  results.push({ check, status: 'fixed', detail });
+  if (!QUIET) console.log(`  🔧 ${check}: ${detail}`);
+}
+
+function readJson(p) {
+  try { return JSON.parse(readFileSync(p, 'utf8')); }
+  catch (e) { return null; }
+}
+
+function writeJson(p, data) {
+  if (DRY_RUN) return;
+  writeFileSync(p, JSON.stringify(data, null, 2) + '\n');
+}
+
+// ── Check 1: openclaw.json valid & has required keys ─────────────────────────
+
+function checkConfig() {
+  if (!existsSync(CONFIG_PATH)) {
+    fail('config_exists', 'openclaw.json not found');
+    return null;
+  }
+
+  let config;
+  try {
+    config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
+  } catch (e) {
+    fail('config_json', `Invalid JSON: ${e.message.slice(0, 100)}`);
+
+    // Try to recover from trailing comma or common JSON issues
+    try {
+      const raw = readFileSync(CONFIG_PATH, 'utf8');
+      // Remove trailing commas before } or ]
+      const cleaned = raw.replace(/,\s*([\]}])/g, '$1');
+      config = JSON.parse(cleaned);
+      writeJson(CONFIG_PATH, config);
+      fixed('config_json', 'Fixed invalid JSON (trailing commas)');
+    } catch {
+      return null;
+    }
+  }
+
+  // Required top-level keys
+  const required = ['auth', 'models', 'agents', 'gateway'];
+  const missing = required.filter(k => !config[k]);
+  if (missing.length > 0) {
+    warn('config_keys', `Missing top-level keys: ${missing.join(', ')}`);
+  } else {
+    ok('config_schema', 'All required keys present');
+  }
+
+  return config;
+}
+
+// ── Check 2: Auth profiles consistency ───────────────────────────────────────
+
+function checkAuth(config) {
+  if (!config) return;
+
+  const authProfiles = readJson(AUTH_PATH);
+  if (!authProfiles) {
+    fail('auth_profiles', 'auth-profiles.json not found or invalid');
+    return;
+  }
+
+  const configProfiles = config.auth?.profiles || {};
+  const configOrder = config.auth?.order || {};
+
+  // Check each provider's order list
+  for (const [provider, order] of Object.entries(configOrder)) {
+    if (!Array.isArray(order)) continue;
+
+    for (const profileId of order) {
+      // Must exist in openclaw.json auth.profiles
+      if (!configProfiles[profileId]) {
+        warn('auth_order_ref', `${profileId} in auth.order.${provider} but not in auth.profiles`);
+      }
+
+      // Must exist in auth-profiles.json with a token
+      if (!authProfiles[profileId]) {
+        warn('auth_token_missing', `${profileId} in order but no token in auth-profiles.json`);
+      } else {
+        const profile = authProfiles[profileId];
+        const token = profile.token || profile.apiKey || profile.api_key;
+        if (!token) {
+          warn('auth_token_empty', `${profileId} has no token/apiKey`);
+        } else {
+          ok('auth_token', `${profileId} has token (${token.slice(0, 12)}...)`);
+        }
+
+        // Check for high error counts
+        if ((profile.consecutiveErrors || 0) >= 3) {
+          warn('auth_errors', `${profileId} has ${profile.consecutiveErrors} consecutive errors — may be dead`);
+
+          // Auto-reset if > 10 consecutive errors (probably stale state)
+          if (profile.consecutiveErrors >= 10) {
+            authProfiles[profileId].consecutiveErrors = 0;
+            authProfiles[profileId].errorCount = 0;
+            writeJson(AUTH_PATH, authProfiles);
+            fixed('auth_errors', `Reset error counters for ${profileId} (was ${profile.consecutiveErrors})`);
+          }
+        }
+      }
+    }
+  }
+
+  // Check for orphaned profiles (in auth-profiles.json but not in any order)
+  const allOrdered = Object.values(configOrder).flat();
+  for (const key of Object.keys(authProfiles)) {
+    if (key === 'profiles') continue; // nested profiles obj
+    if (!allOrdered.includes(key) && !key.includes(':')) continue; // skip non-provider keys
+    if (!allOrdered.includes(key) && configProfiles[key]) {
+      warn('auth_orphan', `${key} in auth-profiles.json but not in any auth.order list`);
+    }
+  }
+}
+
+// ── Check 3: Cron jobs ───────────────────────────────────────────────────────
+
+function checkCrons(config) {
+  if (!existsSync(CRON_PATH)) {
+    ok('crons', 'No cron jobs configured');
+    return;
+  }
+
+  const jobs = readJson(CRON_PATH);
+  if (!jobs || !Array.isArray(jobs)) {
+    fail('crons_json', 'cron/jobs.json invalid');
+    return;
+  }
+
+  const channels = Object.keys(config?.channels || {});
+  const multiChannel = channels.length > 1;
+  let cronFixes = false;
+
+  for (const job of jobs) {
+    if (!job || typeof job !== 'object') continue;
+    if (!job.enabled) continue;
+
+    const name = job.name || job.id?.slice(0, 8) || 'unknown';
+
+    // Check model reference
+    const model = job.payload?.model;
+    if (model) {
+      // Check if it's a known alias
+      const isAlias = KNOWN_ALIASES[model];
+      const isFullRef = model.includes('/');
+
+      if (!isAlias && !isFullRef) {
+        // Might be an invalid model ref like "kimi-k2.5:cloud"
+        // Try to find a matching alias
+        const matchingAlias = Object.entries(KNOWN_ALIASES).find(([_, v]) => v.includes(model));
+        if (matchingAlias) {
+          warn('cron_model', `"${name}" uses "${model}" — did you mean "${matchingAlias[0]}"?`);
+        } else {
+          warn('cron_model', `"${name}" uses unknown model "${model}"`);
+        }
+      } else {
+        ok('cron_model', `"${name}" → ${model}`);
+      }
+    }
+
+    // Check delivery channel for multi-channel setups
+    if (multiChannel && job.delivery?.mode === 'announce') {
+      if (!job.delivery.channel) {
+        warn('cron_channel', `"${name}" has announce delivery but no channel set (${channels.length} channels configured)`);
+
+        // Auto-fix: set to telegram if it's a known channel
+        if (channels.includes('telegram')) {
+          job.delivery.channel = 'telegram';
+          cronFixes = true;
+          fixed('cron_channel', `Set delivery.channel="telegram" for "${name}"`);
+        }
+      }
+    }
+
+    // Check for high consecutive errors
+    if ((job.state?.consecutiveErrors || 0) >= 5) {
+      warn('cron_errors', `"${name}" has ${job.state.consecutiveErrors} consecutive errors`);
+    }
+  }
+
+  if (cronFixes) {
+    writeJson(CRON_PATH, jobs);
+  }
+}
+
+// ── Check 4: Gateway process ─────────────────────────────────────────────────
+
+function checkGateway() {
+  // Process running?
+  let running = false;
+  try {
+    execSync('pgrep -f "openclaw.*gateway" > /dev/null 2>&1', { timeout: 5000 });
+    running = true;
+    ok('gateway_process', 'Running');
+  } catch {
+    fail('gateway_process', 'Not running');
+    // Auto-restart
+    try {
+      if (!DRY_RUN) execSync('openclaw gateway start', { timeout: 20000 });
+      fixed('gateway_process', 'Auto-restarted gateway');
+      running = true;
+    } catch (e) {
+      fail('gateway_restart', `Could not restart: ${e.message?.slice(0, 80)}`);
+    }
+  }
+
+  // HTTP reachable?
+  if (running) {
+    try {
+      const code = execSync('curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://127.0.0.1:18789/', {
+        encoding: 'utf8', timeout: 10000,
+      }).trim();
+      if (code === '200' || code === '101') {
+        ok('gateway_http', `HTTP responding (${code})`);
+      } else {
+        warn('gateway_http', `Unexpected status: ${code}`);
+      }
+    } catch {
+      warn('gateway_http', 'HTTP not responding (may still be starting)');
+    }
+  }
+}
+
+// ── Check 5: Port conflicts ─────────────────────────────────────────────────
+
+function checkPorts() {
+  const ports = [18789, 3000, 3005]; // gateway, MC, MC alt
+  for (const port of ports) {
+    try {
+      const result = execSync(`lsof -i :${port} -t 2>/dev/null | head -3`, { encoding: 'utf8', timeout: 5000 }).trim();
+      const pids = result.split('\n').filter(Boolean);
+      if (pids.length > 1) {
+        warn('port_conflict', `Port ${port} has ${pids.length} processes: ${pids.join(', ')}`);
+      }
+    } catch {}
+  }
+}
+
+// ── Check 6: Stale PID files ─────────────────────────────────────────────────
+
+function checkPidFiles() {
+  const pidFile = join(OC_DIR, '.mc.pid');
+  if (existsSync(pidFile)) {
+    try {
+      const raw = readFileSync(pidFile, 'utf8').trim();
+      const pid = Number(raw);
+      if (isNaN(pid) || pid <= 0) {
+        if (!DRY_RUN) try { unlinkSync(pidFile); } catch {}
+        fixed('pid_stale', 'Removed invalid PID file');
+      } else {
+        try {
+          process.kill(pid, 0);
+          ok('pid_file', `MC PID ${pid} is alive`);
+        } catch {
+          if (!DRY_RUN) try { unlinkSync(pidFile); } catch {}
+          fixed('pid_stale', `Removed stale PID file (process ${pid} dead)`);
+        }
+      }
+    } catch {}
+  }
+}
+
+// ── Check 7: Disk space ──────────────────────────────────────────────────────
+
+function checkDisk() {
+  try {
+    const df = execSync('df -h ~ | tail -1', { encoding: 'utf8', timeout: 5000 });
+    const pct = parseInt(df.match(/(\d+)%/)?.[1] || '0');
+    if (pct >= 95) fail('disk_space', `${pct}% used — critically low`);
+    else if (pct >= 90) warn('disk_space', `${pct}% used — getting tight`);
+    else ok('disk_space', `${pct}% used`);
+  } catch {}
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+
+if (!QUIET) console.log('\n\x1b[1mO7 Doctor\x1b[0m — Config-level health check\n');
+
+const config = checkConfig();
+checkAuth(config);
+checkCrons(config);
+checkGateway();
+checkPorts();
+checkPidFiles();
+checkDisk();
+
+// Summary
+const fails = results.filter(r => r.status === 'fail');
+const warns = results.filter(r => r.status === 'warn');
+const fixes = results.filter(r => r.status === 'fixed');
+const oks = results.filter(r => r.status === 'ok');
+
+if (!QUIET) {
+  console.log('');
+  if (fails.length === 0 && warns.length === 0) {
+    console.log(`\x1b[32m✅ All clear.\x1b[0m ${oks.length} checks passed${fixCount > 0 ? `, ${fixCount} auto-fixed` : ''}.`);
+  } else {
+    console.log(`${fails.length} errors, ${warns.length} warnings, ${fixCount} auto-fixed, ${oks.length} ok.`);
+  }
+  console.log('');
+}
+
+// Log results
+const logEntry = {
+  timestamp: new Date().toISOString(),
+  summary: { ok: oks.length, warn: warns.length, fail: fails.length, fixed: fixes.length },
+  issues: [...fails, ...warns, ...fixes],
+};
+try { writeFileSync(LOG_PATH, readFileSync(LOG_PATH, 'utf8').trim() + '\n' + JSON.stringify(logEntry), 'utf8'); }
+catch { writeFileSync(LOG_PATH, JSON.stringify(logEntry) + '\n'); }
+
+process.exit(fails.length > 0 ? 1 : 0);

@@ -1,0 +1,34 @@
+# AGENTS.md — Workspace Rules
+
+## Every Session
+
+1. Check `TASKS.md` for pending items
+2. Check `HEARTBEAT.md` for scheduled tasks
+3. Review recent `memory/` entries for context
+
+## End of Every Chat
+
+1. Save important decisions and facts to `memory/`
+2. Update `TASKS.md` if any tasks were created, completed, or changed
+3. If the conversation was significant, write a brief summary
+
+## Safety & Security
+
+1. **All integrations are READ-ONLY by default.** Do not attempt write operations unless the user has explicitly enabled them.
+2. **Never expose API keys** in chat, logs, or memory files.
+3. **Ask before acting** on anything that affects external systems (email, calendar, code repos).
+4. **Protect personal data.** Don't include sensitive information in logs or summaries.
+5. **Stay in scope.** Only access systems and data that the user has connected.
+
+## Memory
+
+- Store long-term facts in `memory/` with date-stamped filenames
+- Keep entries concise — facts and decisions, not full transcripts
+- Review and clean up old entries periodically
+
+## Formatting
+
+- Use markdown for all outputs
+- Keep responses concise unless the user asks for detail
+- Use code blocks for technical content
+- Use bullet points for lists and action items

@@ -1,30 +1,24 @@
-# @erenes1667/o7-cli
+# @nicotinetool/o7-cli
 
-One-command installer and lifecycle manager for Optimum7's OpenClaw + Mission Control setup.
+One command to set up Optimum7's AI assistant platform (OpenClaw + Mission Control).
 
-## Quick Start
-
-```bash
-# Install globally (recommended)
-npm i -g @erenes1667/o7-cli
-
-# Or use npx
-npx --package @erenes1667/o7-cli o7 status
-```
-
-## Setup
-
-Clone the repo first, then run the installer:
+## Install
 
 ```bash
-git clone https://github.com/erenes1667/unified-mc.git
-cd unified-mc
-o7-setup
+npx @nicotinetool/o7-cli o7-setup
 ```
 
-This runs the full installer which sets up OpenClaw, AI model auth, and Mission Control.
+That's it. The wizard handles everything: dependencies, AI model auth, gateway, dashboard, and device registration.
 
 ## Usage
+
+After setup, install globally for convenience:
+
+```bash
+npm i -g @nicotinetool/o7-cli
+```
+
+Then:
 
 ```bash
 o7 start      # Start Gateway + Mission Control
@@ -32,22 +26,16 @@ o7 status     # Show running status
 o7 stop       # Stop both
 o7 restart    # Restart both
 o7 update     # Pull latest, rebuild, restart
+o7 doctor     # Config-level health check + auto-fix
 ```
 
-## Profile Isolation
+## What Gets Installed
 
-The installer defaults to `--profile o7`, which sets `OPENCLAW_HOME=~/.openclaw-o7`. This keeps work config separate from personal OpenClaw.
-
-```bash
-o7-setup --profile staging
-```
-
-## Device Registration
-
-On first setup, your machine is registered with the O7 OS admin dashboard. This enables:
-- Fleet visibility (who's installed, who's online)
-- Heartbeat monitoring (auto-restarts if gateway goes down)
-- Module sync and quota management
+- **OpenClaw Gateway** — AI assistant runtime (runs as macOS service)
+- **Mission Control** — Dashboard UI at http://localhost:3000
+- **AI Models** — Guided setup for Claude, ChatGPT, Kimi, Gemini
+- **Antigravity** — Self-healing engine (auto-fixes issues every 30 min)
+- **Device Registration** — Shows up in the O7 OS admin dashboard
 
 ## Environment Variables
 

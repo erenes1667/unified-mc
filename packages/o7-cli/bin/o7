@@ -4,7 +4,7 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from '
 import { join, dirname } from 'path';
 import { homedir, hostname, platform, arch, release } from 'os';
 
-const VERSION = '1.0.2';
+const VERSION = '1.1.1';
 const O7_ADMIN_URL = 'https://o7-os-admin-production.up.railway.app';
 const MC_DIR = process.env.O7_MC_DIR || join(homedir(), 'Projects/unified-mc');
 const STATE_DIR = join(homedir(), '.openclaw');
@@ -206,6 +206,7 @@ Commands:
   restart   Restart both
   update    Pull latest, install deps, rebuild, restart
   status    Show running status
+  doctor    Config-level health check + auto-fix
 
 Options:
   --help, -h       Show this help
@@ -218,7 +219,20 @@ Environment:
 
 // ── Dispatch ─────────────────────────────────────────────────────────────────
 
-const commands = { status, start, stop, restart, update };
+function doctor() {
+  const doctorScript = join(dirname(new URL(import.meta.url).pathname), 'o7-doctor');
+  try {
+    execSync(`node "${doctorScript}" ${process.argv.slice(3).join(' ')}`, { stdio: 'inherit', timeout: 60000 });
+  } catch (err) {
+    // doctor exits 1 if issues found, that's expected
+    if (err.status > 1) {
+      console.error('Doctor script failed to run.');
+      process.exit(1);
+    }
+  }
+}
+
+const commands = { status, start, stop, restart, update, doctor };
 
 if (!cmd) { showHelp(); process.exit(0); }
 if (!commands[cmd]) {

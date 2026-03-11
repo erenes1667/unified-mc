@@ -1,6 +1,6 @@
 {
-  "name": "@erenes1667/o7-cli",
-  "version": "1.0.2",
+  "name": "@nicotinetool/o7-cli",
+  "version": "1.1.1",
   "description": "Optimum7 OpenClaw installer and lifecycle manager",
   "type": "module",
   "bin": {
@@ -12,6 +12,7 @@
   },
   "files": [
     "bin/",
+    "installer/",
     "README.md"
   ],
   "keywords": ["openclaw", "optimum7", "cli", "installer", "mission-control"],
