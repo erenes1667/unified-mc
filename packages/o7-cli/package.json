@@ -1,9 +1,10 @@
 {
   "name": "@nicotinetool/o7-cli",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Optimum7 OpenClaw installer and lifecycle manager",
   "type": "module",
   "bin": {
+    "o7-cli": "./bin/o7-cli",
     "o7-setup": "./bin/o7-setup",
     "o7": "./bin/o7"
   },
