@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir, platform } from 'os';
@@ -16,6 +16,12 @@ if (profileIdx !== -1 && process.argv[profileIdx + 1]) {
   profile = process.argv[profileIdx + 1];
 }
 
+// Sanitize profile: alphanumeric, hyphens, underscores only
+if (!/^[a-zA-Z0-9_-]+$/.test(profile)) {
+  console.error(`Invalid profile name: "${profile}". Use only letters, numbers, hyphens, underscores.`);
+  process.exit(1);
+}
+
 // Look for installer in known locations
 const locations = [
   join(homedir(), 'Projects/unified-mc/installer/install.sh'),
@@ -25,33 +31,24 @@ const locations = [
 let installerPath = locations.find(p => existsSync(p));
 
 if (!installerPath) {
-  console.log('Installer not found locally. Cloning from GitHub...');
-  const tmpDir = join(homedir(), '.openclaw/.setup-tmp');
-  try {
-    execSync(`git clone --depth 1 https://github.com/nicotinetool/unified-mc.git "${tmpDir}"`, { stdio: 'inherit' });
-    installerPath = join(tmpDir, 'installer/install.sh');
-  } catch {
-    console.error('Failed to clone repository. Check your network and try again.');
-    process.exit(1);
-  }
+  console.error('Installer not found locally.');
+  console.error('Clone the repo first, then run from the repo root:');
+  console.error('  git clone https://github.com/erenes1667/unified-mc.git');
+  console.error('  cd unified-mc && npx o7-setup');
+  process.exit(1);
 }
 
 console.log(`\n\x1b[1mO7 OpenClaw Setup\x1b[0m (profile: ${profile})\n`);
 
 try {
-  execSync(`bash "${installerPath}" --profile ${profile}`, {
+  // Use execFileSync to avoid shell injection
+  execFileSync('bash', [installerPath, '--profile', profile], {
     stdio: 'inherit',
     env: { ...process.env },
   });
 } catch {
   console.error('\nInstallation failed. Check the output above for details.');
   process.exit(1);
-}
-
-// Clean up temp clone if we made one
-const tmpDir = join(homedir(), '.openclaw/.setup-tmp');
-if (existsSync(tmpDir)) {
-  try { execSync(`rm -rf "${tmpDir}"`, { stdio: 'ignore' }); } catch {}
 }
 
 console.log(`

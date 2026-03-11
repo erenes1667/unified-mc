@@ -78,6 +78,10 @@ function start() {
     stdio: 'ignore',
     env: { ...process.env, PATH: `${dirname(process.execPath)}:/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ''}` },
   });
+  if (!mc.pid) {
+    console.error('Failed to start Mission Control. Is pnpm installed?');
+    process.exit(1);
+  }
   mc.unref();
   writeFileSync(PID_FILE, String(mc.pid));
   console.log(`\n\x1b[32m✓ Mission Control started\x1b[0m (PID ${mc.pid})`);
