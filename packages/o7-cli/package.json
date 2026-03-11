@@ -1,5 +1,5 @@
 {
-  "name": "o7-cli",
+  "name": "@erenes1667/o7-cli",
   "version": "1.0.0",
   "description": "Optimum7 OpenClaw installer and lifecycle manager",
   "type": "module",
