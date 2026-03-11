@@ -91,10 +91,13 @@ if ! state_check "openclaw"; then
   if command -v openclaw &>/dev/null; then
     local_ver=$(openclaw --version 2>/dev/null | awk '{print $1}')
     ok "OpenClaw already installed (${local_ver})"
-    info "Checking for updates..."
-    npm install -g openclaw@latest &>/dev/null &
-    spin $! "Updating OpenClaw..."
-    wait $!
+    if confirm "  Check for updates?"; then
+      npm install -g openclaw@latest &>/dev/null &
+      spin $! "Updating OpenClaw..."
+      wait $!
+    else
+      info "Skipping update check."
+    fi
   else
     info "Installing OpenClaw..."
     npm install -g openclaw@latest &

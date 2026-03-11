@@ -4,7 +4,7 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from '
 import { join, dirname } from 'path';
 import { homedir, hostname, platform, arch, release } from 'os';
 
-const VERSION = '1.1.5';
+const VERSION = '1.1.6';
 const O7_ADMIN_URL = 'https://o7-os-admin-production.up.railway.app';
 const MC_DIR = process.env.O7_MC_DIR || join(homedir(), 'Projects/unified-mc');
 const STATE_DIR = join(homedir(), '.openclaw');
