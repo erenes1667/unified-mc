@@ -294,7 +294,7 @@ echo
 echo -e "${BOLD}  What's set up:${RESET}"
 
 # Auth results
-for result in "${AUTH_RESULTS[@]}"; do
+for result in "${AUTH_RESULTS[@]+"${AUTH_RESULTS[@]}"}"; do
   provider=$(echo "$result" | cut -d: -f1)
   status=$(echo "$result" | cut -d: -f2)
   case "$status" in
