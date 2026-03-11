@@ -5,7 +5,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { homedir, platform, hostname, release } from 'os';
 
-const VERSION = '1.1.4';
+const VERSION = '1.1.5';
 const O7_ADMIN_URL = 'https://o7-os-admin-production.up.railway.app';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -63,13 +63,16 @@ if (useWizard) {
 }
 
 if (!useWizard) {
-  try {
-    execFileSync('bash', [installerPath, '--profile', profile], {
+  const { spawn: spawnProc } = await import('child_process');
+  const exitCode = await new Promise((resolve) => {
+    const child = spawnProc('bash', [installerPath, '--profile', profile], {
       stdio: 'inherit',
       env: { ...process.env },
-      timeout: 600000,
     });
-  } catch {
+    child.on('close', resolve);
+    child.on('error', () => resolve(1));
+  });
+  if (exitCode !== 0) {
     console.error('\nInstallation failed. Check the output above for details.');
     process.exit(1);
   }
