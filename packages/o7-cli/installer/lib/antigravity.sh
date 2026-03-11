@@ -21,7 +21,7 @@ setup_antigravity() {
   if [[ -z "$gemini_key" ]]; then
     # Check if they set up Gemini in auth phase
     local has_gemini=false
-    for result in "${AUTH_RESULTS[@]}"; do
+    for result in "${AUTH_RESULTS[@]+"${AUTH_RESULTS[@]}"}"; do
       if [[ "$result" == "gemini:ok" ]]; then
         has_gemini=true
         break

@@ -55,6 +55,7 @@ log "=== INSTALL STARTED $(date) ==="
 EXISTING_INSTALL=false
 SKIP_AUTH=false
 SKIP_GATEWAY=false
+AUTH_RESULTS=()
 if [[ -f "${HOME}/.openclaw/openclaw.json" ]] && command -v openclaw &>/dev/null; then
   EXISTING_INSTALL=true
   echo
