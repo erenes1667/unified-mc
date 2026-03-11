@@ -133,15 +133,30 @@ echo -e "  ${BOLD}What's your role at Optimum7?${RESET}"
 echo -e "  ${DIM}This pre-configures the right tools for you.${RESET}"
 echo
 
-ROLE_IDX=$(menu "  Select your role:" \
-  "📧  Marketing / Email (Klaviyo, campaigns, flows)" \
-  "📈  PPC / Ads (Google Ads, Meta, reporting)" \
-  "💻  Developer (coding agents, GitHub, CI/CD)" \
-  "👑  Admin (full access, everything)" \
-  "🎛️   Custom (pick and choose later)")
-
+echo -e "  ${CYAN}1)${RESET} 📧  Marketing / Email (Klaviyo, campaigns, flows)"
+echo -e "  ${CYAN}2)${RESET} 📈  PPC / Ads (Google Ads, Meta, reporting)"
+echo -e "  ${CYAN}3)${RESET} 💻  Developer (coding agents, GitHub, CI/CD)"
+echo -e "  ${CYAN}4)${RESET} 👑  Admin (full access, everything)"
+echo -e "  ${CYAN}5)${RESET} 🎛️   Custom (type your own)"
+echo
 ROLES=("marketing" "ppc" "dev" "admin" "custom")
-SELECTED_ROLE="${ROLES[$ROLE_IDX]}"
+SELECTED_ROLE=""
+while [[ -z "$SELECTED_ROLE" ]]; do
+  echo -en "${BOLD}  Pick a number or type your role: ${RESET}"
+  read -r role_input
+  case "$role_input" in
+    1) SELECTED_ROLE="marketing" ;;
+    2) SELECTED_ROLE="ppc" ;;
+    3) SELECTED_ROLE="dev" ;;
+    4) SELECTED_ROLE="admin" ;;
+    5|"") SELECTED_ROLE="custom" ;;
+    *)
+      # Free text: treat as custom role description
+      SELECTED_ROLE="custom"
+      log "CUSTOM_ROLE: ${role_input}"
+      ;;
+  esac
+done
 ok "Role set: ${SELECTED_ROLE}"
 log "ROLE: ${SELECTED_ROLE}"
 
