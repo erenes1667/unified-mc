@@ -187,6 +187,7 @@ MC_REPO="https://github.com/erenes1667/unified-mc.git"
 if ! state_check "mc"; then
   if [[ -d "$MC_DIR/.git" ]]; then
     info "Mission Control already cloned. Pulling latest..."
+    git -C "$MC_DIR" stash --quiet 2>/dev/null || true
     git -C "$MC_DIR" pull --rebase --quiet &
     spin $! "Updating Mission Control..."
     wait $!
