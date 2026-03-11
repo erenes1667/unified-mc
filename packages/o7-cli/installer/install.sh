@@ -248,6 +248,8 @@ if ! state_check "mc-daemon" && [[ -d "$MC_DIR" ]]; then
         <string>${NODE_DIR}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
         <key>NODE_ENV</key>
         <string>development</string>
+        <key>PORT</key>
+        <string>18790</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>
@@ -265,14 +267,14 @@ PLIST
   launchctl load "$MC_PLIST"
 
   sleep 5
-  if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 --max-time 10 | grep -qE "200|307"; then
-    ok "Mission Control running at http://localhost:3000"
+  if curl -s -o /dev/null -w "%{http_code}" http://localhost:18790 --max-time 10 | grep -qE "200|307"; then
+    ok "Mission Control running at http://localhost:18790"
     log "OK: Mission Control daemon installed"
     state_done "mc-daemon"
-    open "http://localhost:3000" 2>/dev/null || true
+    open "http://localhost:18790" 2>/dev/null || true
   else
     warn "Mission Control is starting (can take 30s on first boot)"
-    info "It will be available at http://localhost:3000 shortly"
+    info "It will be available at http://localhost:18790 shortly"
     log "WARN: MC not yet responding, but daemon installed"
     state_done "mc-daemon"
   fi
@@ -304,11 +306,11 @@ done
 echo
 echo -e "${BOLD}  Services:${RESET}"
 summary_row "  🦞 OpenClaw Gateway" "localhost:18789 (auto-start)"
-summary_row "  📊 Mission Control" "http://localhost:3000 (auto-start)"
+summary_row "  📊 Mission Control" "http://localhost:18790 (auto-start)"
 summary_row "  🛡️  Antigravity" "every 30 min (auto-heal)"
 echo
 echo -e "${BOLD}  Quick links:${RESET}"
-echo -e "  ${CYAN}→ Mission Control:${RESET}  http://localhost:3000"
+echo -e "  ${CYAN}→ Mission Control:${RESET}  http://localhost:18790"
 echo -e "  ${CYAN}→ Docs:${RESET}             https://docs.openclaw.ai"
 echo -e "  ${CYAN}→ Discord:${RESET}          https://discord.gg/clawd"
 echo
