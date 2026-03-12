@@ -19,7 +19,7 @@ setup_claude() {
   fi
 
   info "Launching browser authentication..."
-  openclaw onboard --auth-choice setup-token --non-interactive=false 2>&1 | while read -r line; do
+  openclaw onboard --auth-choice setup-token 2>&1 | while read -r line; do
     echo -e "  ${DIM}${line}${RESET}"
   done
   local exit_code=${PIPESTATUS[0]}
