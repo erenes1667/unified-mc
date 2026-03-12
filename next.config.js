@@ -8,8 +8,9 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   
-  // Security headers
+  // Security headers (disabled in dev — CSP blocks React Refresh)
   async headers() {
+    if (process.env.NODE_ENV !== 'production') return [];
     const googleEnabled = !!(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID)
 
     const csp = [
