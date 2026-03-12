@@ -242,6 +242,8 @@ if ! state_check "mc-daemon" && [[ -d "$MC_DIR" ]]; then
         <string>dev</string>
         <string>--hostname</string>
         <string>127.0.0.1</string>
+        <string>--port</string>
+        <string>18790</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
@@ -318,7 +320,6 @@ echo
 echo -e "${BOLD}  Quick links:${RESET}"
 echo -e "  ${CYAN}→ Mission Control:${RESET}  http://localhost:18790"
 echo -e "  ${CYAN}→ Docs:${RESET}             https://docs.openclaw.ai"
-echo -e "  ${CYAN}→ Discord:${RESET}          https://discord.gg/clawd"
 echo
 echo -e "${BOLD}  Useful commands:${RESET}"
 echo -e "  ${DIM}openclaw gateway status${RESET}  — check gateway"
