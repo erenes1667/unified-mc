@@ -284,7 +284,12 @@ else
 fi
 
 # ── PHASE 9: Antigravity ──────────────────────────────────────
-setup_antigravity
+if [[ "$SKIP_AUTH" != "true" ]]; then
+  setup_antigravity
+else
+  section 9 "Antigravity Self-Healer"
+  ok "Antigravity skipped — preserving existing config"
+fi
 
 # ── PHASE 10: Summary ─────────────────────────────────────────
 section 10 "Setup Complete"

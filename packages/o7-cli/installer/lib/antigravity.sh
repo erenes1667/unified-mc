@@ -16,7 +16,7 @@ setup_antigravity() {
 
   # Check for Gemini API key (required for Antigravity)
   local gemini_key
-  gemini_key=$(grep -o '"GEMINI_API_KEY"[[:space:]]*:[[:space:]]*"[^"]*"' ~/.openclaw/openclaw.json 2>/dev/null | head -1 | sed 's/.*: *"//;s/"//')
+  gemini_key=$(grep -o '"GEMINI_API_KEY"[[:space:]]*:[[:space:]]*"[^"]*"' ~/.openclaw/openclaw.json 2>/dev/null | head -1 | sed 's/.*: *"//;s/"//' || true)
 
   if [[ -z "$gemini_key" ]]; then
     # Check if they set up Gemini in auth phase
